@@ -35,7 +35,7 @@ message_setup_this_dir()
 
 
 # set include directories
-include_directories(
+set(INCLUDE_DIRECTORIES
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CUDACODE_INCLUDE_DIR}
 	${RPWA_DECAYAMPLITUDE_INCLUDE_DIR}
@@ -46,6 +46,15 @@ include_directories(
 	${Libconfig_INCLUDE_DIR}
 	${ROOT_INCLUDE_DIR}
 	)
+
+
+if(MultiNest_FOUND)
+	set(INCLUDE_DIRECTORIES
+		${INCLUDE_DIRECTORIES}
+		${MultiNest_INCLUDE_DIR}
+		)
+endif()
+include_directories(${INCLUDE_DIRECTORIES})
 
 
 # source files that are compiled into library
@@ -97,6 +106,9 @@ make_executable(stripIntegralsFromFitResult    stripIntegralsFromFitResult.cc   
 make_executable(addIntegralsToFitResult        addIntegralsToFitResult.cc         ${THIS_LIB} ${RPWA_UTILITIES_LIB})
 make_executable(compareFitResultsIntegrals     compareFitResultsIntegrals.cc      ${THIS_LIB} ${RPWA_UTILITIES_LIB})
 
+if(MultiNest_FOUND)
+	make_executable(pwaEvidence                pwaEvidence.cc                     ${THIS_LIB} "${MultiNest_LIBS}" "${RPWA_UTILITIES_LIB}")
+endif()
 
 # build tests
 add_subdirectory(test)
