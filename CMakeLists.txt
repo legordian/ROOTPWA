@@ -415,6 +415,28 @@ endif()
 add_feature_info(Bayesian_Analysis_Toolkit USE_BAT "Allow usage of the Bayesian Analysis Toolkit.")
 
 
+# setup MultiNest
+# environment variable $MULTINEST is expected to point to MultiNest location
+message(STATUS "")
+message(STATUS ">>> Setting up MultiNest library.")
+find_package(MultiNest)
+set_package_properties(MultiNest
+	PROPERTIES
+	DESCRIPTION "Fortran library for nested sampling."
+	URL "http://ccpforge.cse.rl.ac.uk/gf/project/multinest/"
+	TYPE OPTIONAL
+)
+
+
+if(NOT MultiNest_FOUND)
+	set(USE_MULTINEST OFF)
+	message(STATUS "Cannot find MultiNest installation. No MultiNest components will be generated.")
+else()
+	set(USE_MULTINEST ON)
+endif()
+add_feature_info(MultiNest USE_MULTINEST "MultiNest provides a numeric calculation of the evidence.")
+
+
 # make git hash accessible via predefined macro GIT_HASH
 message(STATUS "")
 message(STATUS ">>> Setting up Git.")
