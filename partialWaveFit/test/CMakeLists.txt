@@ -43,6 +43,20 @@ include_directories(
 	)
 
 
+if(MultiNest_FOUND)
+	set(INCLUDE_DIRECTORIES
+		${INCLUDE_DIRECTORIES}
+		${MultiNest_INCLUDE_DIR}
+		)
+endif()
+include_directories(${INCLUDE_DIRECTORIES})
+
+
 # executables
 make_executable(testParameterSpace testParameterSpace.cc "${RPWA_PARTIALWAVEFIT_LIB}")
 make_executable(testLikelihood     testLikelihood.cc     "${RPWA_PARTIALWAVEFIT_LIB}")
+
+
+if(MultiNest_FOUND)
+	make_executable(testMultiNest   testMultiNest.cc "${RPWA_PARTIALWAVEFIT_LIB}" ${MultiNest_LIBS})
+endif()
