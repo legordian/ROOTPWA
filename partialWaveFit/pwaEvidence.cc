@@ -64,14 +64,14 @@ using namespace rpwa;
 void LogLike(double* Cube, int& ndim, int& npars, double& lnew, void* context)
 {
 	assert(ndim == npars);
-	pwaLikelihood<complex<double> > L = *((pwaLikelihood<complex<double> >*)context);
-	static const double stretchFactor = L.nmbEvents() * 10.;
-	assert(ndim == (int)L.NDim());
+	pwaLikelihood<complex<double> >* L = (pwaLikelihood<complex<double> >*)context;
+	static const double stretchFactor = L->nmbEvents() * 10.;
+	assert(ndim == (int)L->NDim());
 	for(int i = 0; i < ndim; ++i) {
 		double x = 2. * (Cube[i] - 0.5) * stretchFactor;
 		Cube[i] = x;
 	}
-	lnew = L.DoEval(Cube);
+	lnew = -L->DoEval(Cube);
 }
 
 void dumper(int &nSamples,
