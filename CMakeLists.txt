@@ -599,6 +599,10 @@ if(USE_MPI)
 	add_subdirectory(mpi)
 endif()
 
+if(USE_MULTINEST)
+	add_subdirectory(multinest)
+endif()
+
 # Python bindings
 add_subdirectory(pyInterface)
 

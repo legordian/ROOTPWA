@@ -21,28 +21,37 @@
 #//-------------------------------------------------------------------------
 #//
 #// Description:
-#//      build file for partialWaveFit library tests
+#//      build file for RootPwa library
 #//
 #//
 #// Author List:
-#//      Boris Grube          TUM            (original author)
+#//      Sebastian Neubert    TUM            (original author)
 #//
 #//
 #//-------------------------------------------------------------------------
 
 
+message(STATUS "")
+message(STATUS ">>> Setting up 'multinest' directory.")
+
+
 # set include directories
-include_directories(
+set(INCLUDE_DIRECTORIES
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${RPWA_DECAYAMPLITUDE_INCLUDE_DIR}
+	${RPWA_PARTIALWAVEFIT_INCLUDE_DIR}
+	${RPWA_PARTICLEDATA_INCLUDE_DIR}
 	${RPWA_UTILITIES_INCLUDE_DIR}
 	SYSTEM
 	${Boost_INCLUDE_DIRS}
 	${Libconfig_INCLUDE_DIR}
+	${MultiNest_INCLUDE_DIR}
 	${ROOT_INCLUDE_DIR}
 	)
-
+include_directories(${INCLUDE_DIRECTORIES})
 
 # executables
-make_executable(testParameterSpace testParameterSpace.cc "${RPWA_PARTIALWAVEFIT_LIB}")
-make_executable(testLikelihood     testLikelihood.cc     "${RPWA_PARTIALWAVEFIT_LIB}")
+make_executable(pwaEvidence   pwaEvidence.cc       ${RPWA_PARTIALWAVEFIT_LIB} ${RPWA_PARTICLEDATA_LIB} ${RPWA_UTILITIES_LIB} ${MultiNest_LIBS})
+
+# build tests
+add_subdirectory(test)

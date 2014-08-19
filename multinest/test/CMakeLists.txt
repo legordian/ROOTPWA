@@ -21,7 +21,7 @@
 #//-------------------------------------------------------------------------
 #//
 #// Description:
-#//      build file for partialWaveFit library tests
+#//      build file for src library tests
 #//
 #//
 #// Author List:
@@ -32,17 +32,17 @@
 
 
 # set include directories
-include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${RPWA_DECAYAMPLITUDE_INCLUDE_DIR}
-	${RPWA_UTILITIES_INCLUDE_DIR}
-	SYSTEM
-	${Boost_INCLUDE_DIRS}
+set(INCLUDE_DIRECTORIES
+SYSTEM ${Boost_INCLUDE_DIRS}
 	${Libconfig_INCLUDE_DIR}
 	${ROOT_INCLUDE_DIR}
+	${UTILITIES_INCLUDE_DIR}
+	${AMPLITUDE_INCLUDE_DIR}
+	${MultiNest_INCLUDE_DIR}
+	${CMAKE_CURRENT_SOURCE_DIR}
 	)
+include_directories(${INCLUDE_DIRECTORIES})
 
 
 # executables
-make_executable(testParameterSpace testParameterSpace.cc "${RPWA_PARTIALWAVEFIT_LIB}")
-make_executable(testLikelihood     testLikelihood.cc     "${RPWA_PARTIALWAVEFIT_LIB}")
+make_executable(testMultiNest   testMultiNest.cc       ${ROOTPWA_LIBS}    ${MultiNest_LIBS})
