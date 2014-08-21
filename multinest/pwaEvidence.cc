@@ -96,53 +96,13 @@ namespace {
 				}
 				_rMap[r].push_back(pair<double, double>(u, x));
 			}
-/*cout << " ############# " << endl;
-cout << nEvents << endl;
-cout << e << endl;
-cout << endl;
-cout << "_rValues = [ " << _rValues[0];
-for(unsigned int i = 1; i < _rValues.size(); ++i) {
-	cout << ", " << _rValues[i];
-}
-cout << "]" << endl;
-for(map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.begin(); rMapIt != _rMap.end(); ++rMapIt) {
-	cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
-	for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
-		cout << ", " << rMapIt->second[i];
-	}
-	cout << "]" << endl;
-}
-
-cout << " ############# " << endl;*/
 			integralFile->Close();
 		}
 
-		double transformCoordinate(const double& r, const double& u) const {
-
+		double transformCoordinate(const double& r, const double& u) const
+		{
 			pair<double, double> rBracket = getClosestPoint(r, _rValues);
-/*cout << "#########" << endl;
-cout << "_rValues = [ " << _rValues[0];
-for(unsigned int i = 1; i < _rValues.size(); ++i) {
-	cout << ", " << _rValues[i];
-}
-cout << "]" << endl;
-cout << " r = " << r << endl;
-cout << " rLow = " << rBracket.first << "  |  rHigh = " << rBracket.second << endl;
-cout << "#########" << endl;
-cout << "####################" << endl;
-cout << endl;
-cout << " r = " << r << endl;
-cout << " u = " << u << endl;
-cout << endl;
-cout << "_rValues = [ " << _rValues[0];
-for(unsigned int i = 1; i < _rValues.size(); ++i) {
-	cout << ", " << _rValues[i];
-}
-cout << "]" << endl;
-cout << endl;
-cout << " rBracket = (" << rBracket.first << ", " << rBracket.second << ")" << endl;
-cout << endl;
-*/			map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(rBracket.first);
+			map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(rBracket.first);
 			if(rMapIt == _rMap.end()) {
 				printErr << "mapping error" << endl;
 				throw;
@@ -154,28 +114,14 @@ cout << endl;
 			} else {
 				firstPoint = interpolate(u, rMapIt->second[firstRValueIndices.first], rMapIt->second[firstRValueIndices.second]);
 			}
-/*cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
-for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
-	cout << ", " << rMapIt->second[i];
-}
-cout << "]" << endl;
-cout << endl;
-cout << " firstPointBracket = (" << rMapIt->second[firstRValueIndices.first] << ", " << rMapIt->second[firstRValueIndices.second] << ")" << endl;
-cout << " firstPoint(u,x) = (" << firstPoint.first << ", " << firstPoint.second << ")" << endl;
-cout << endl;
-*/			if(rBracket.first == rBracket.second) {
-/*cout << " same rs, returning " << endl;
-cout << " result = " << firstPoint.second << endl;
-cout << endl;
-cout << "####################" << endl;
-*/				return firstPoint.second;
+			if(rBracket.first == rBracket.second) {
+				return firstPoint.second;
 			}
 			rMapIt = _rMap.find(rBracket.second);
 			if(rMapIt == _rMap.end()) {
 				printErr << "mapping error" << endl;
 				throw;
 			}
-
 			pair<unsigned int, unsigned int> secondRValueIndices = getClosestIndices(u, rMapIt->second);
 			pair<double, double> secondPoint;
 			if(secondRValueIndices.first == secondRValueIndices.second) {
@@ -183,29 +129,11 @@ cout << "####################" << endl;
 			} else {
 				secondPoint = interpolate(u, rMapIt->second[secondRValueIndices.first], rMapIt->second[secondRValueIndices.second]);
 			}
-/*cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
-for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
-	cout << ", " << rMapIt->second[i];
-}
-cout << "]" << endl;
-cout << endl;
-cout << " secondPointBracket = (" << rMapIt->second[secondRValueIndices.first] << ", " << rMapIt->second[secondRValueIndices.second] << ")" << endl;
-cout << " secondPoint(u,x) = (" << secondPoint.first << ", " << secondPoint.second << ")" << endl;
-cout << endl;
-*/			const double returnValue = interpolate(r,
+			const double returnValue = interpolate(r,
 			                                       pair<double,double>(rBracket.first, firstPoint.second),
 			                                       pair<double,double>(rBracket.second, secondPoint.second)
 			                                      ).second;
-
-/*cout << " final interpolation:" << endl;
-cout << endl;
-cout << " firstPoint(r,x) = (" << rBracket.first << ", " << firstPoint.second << ")" << endl;
-cout << " secondPoint(r,x) = (" << rBracket.second << ", " << secondPoint.second << ")" << endl;
-cout << endl;
-cout << " result = " << returnValue << endl;
-cout << endl;
-cout << "####################" << endl;
-*/			return returnValue;
+			return returnValue;
 		}
 
 	  private:
