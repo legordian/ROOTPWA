@@ -46,6 +46,7 @@
 #include "TComplex.h"
 #include "TRandom3.h"
 #include "TStopwatch.h"
+#include "TDecompChol.h"
 
 #include "reportingUtilsEnvironment.h"
 #include "conversionUtils.hpp"
@@ -186,13 +187,73 @@ namespace {
 
 		multiNestLogLike()
 		  : pwaLikelihood<complex<double> >(),
-		  _transformationTables() { }
+		  _transformationTables(),
+		  _transformationMatrix() { }
 
 		~multiNestLogLike() {
 			for(unsigned int i = 0; i < _transformationTables.size(); ++i) {
 				delete _transformationTables[i];
 			}
 			_transformationTables.clear();
+		}
+
+		// operations
+		void init(const unsigned int rank,
+		          const double& massBinCenter,
+		          const std::string& waveListFileName,
+		          const std::string& normIntFileName,
+		          const std::string& accIntFileName,
+		          const std::string& ampDirName    = ".",
+		          const unsigned int numbAccEvents = 0,
+		          const bool         useRootAmps   = false)  ///< prepares all internal data structures
+		{
+			pwaLikelihood<complex<double> >::init(rank,
+			                                      massBinCenter,
+			                                      waveListFileName,
+			                                      normIntFileName,
+			                                      accIntFileName,
+			                                      ampDirName,
+			                                      numbAccEvents,
+			                                      useRootAmps);
+			complexMatrix accIntegral (nmbWaves() + 1, nmbWaves() + 1);  // normalization integral over full phase space with acceptance
+			{
+				complexMatrix normIntegral(nmbWaves() + 1, nmbWaves() + 1);  // normalization integral over full phase space without acceptance
+				vector<double> phaseSpaceIntegral;
+				pwaLikelihood<complex<double> >::getIntegralMatrices(normIntegral, accIntegral, phaseSpaceIntegral);
+			}
+			const unsigned int tempDims = accIntegral.nRows();
+			TMatrixT<double> tempRealAccIntegral(2*tempDims, 2*tempDims);
+			for(unsigned int i = 0; i < accIntegral.nRows(); ++i) {
+				for(unsigned int j = 0; j < accIntegral.nCols(); ++j) {
+					const complex<double>& elem = accIntegral.get(i, j);
+					const double& real = elem.real();
+					const double& imag = elem.imag();
+					tempRealAccIntegral[2*i  ][2*j  ] =  real;
+					tempRealAccIntegral[2*i+1][2*j+1] =  real;
+					tempRealAccIntegral[2*i+1][2*j  ] =  imag;
+					tempRealAccIntegral[2*i  ][2*j+1] = -imag;
+				}
+			}
+			TMatrixT<double> realAccIntegral(NDim(), NDim());
+			// first wave and flat wave have no imaginary part
+			unsigned int realI = 0;
+			for(int i = 0; i < tempRealAccIntegral.GetNrows()-1; ++i) {
+				if(i == 1) continue;
+				unsigned int realJ = 0;
+				for(int j = 0; j < tempRealAccIntegral.GetNcols()-1; ++j) {
+					if(j == 1) continue;
+					realAccIntegral[realI][realJ++] = tempRealAccIntegral[i][j];
+				}
+				realI++;
+			}
+			TDecompChol decomposition(realAccIntegral);
+			if(not decomposition.Decompose()) {
+				printErr << "cholesky decomposition failed. Aborting..." << endl;
+				throw;
+			}
+			_transformationMatrix.ResizeTo(NDim(), NDim());
+			_transformationMatrix = decomposition.GetU();
+			_transformationMatrix = _transformationMatrix.Invert();
 		}
 
 		void readTransformationTables(string tableDirectory) {
@@ -217,7 +278,15 @@ namespace {
 				coordinates[i] = transformationTable->transformCoordinate(sqrt(r), coordinates[i]);
 				r += coordinates[i] * coordinates[i];
 			}
-			// TODO: matrix multiplication with cholesky decomposition matrix here
+			std::vector<double> newCoordinates(nDim, 0.);
+			for(unsigned int i = 0; i < nDim; ++i) {
+				for(unsigned int j = 0; j < nDim; ++j) {
+					newCoordinates[i] = _transformationMatrix[i][j] * coordinates[j];
+				}
+			}
+			for(unsigned int i = 0; i < nDim; ++i) {
+				coordinates[i] = newCoordinates[i];
+			}
 		}
 
 		virtual double DoEval(const double* par) const {
@@ -232,6 +301,7 @@ namespace {
 	  private:
 
 		std::vector<transformationTableContainer*> _transformationTables;
+		TMatrixT<double> _transformationMatrix;
 
 	};
 
