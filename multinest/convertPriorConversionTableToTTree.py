@@ -35,8 +35,7 @@ if __name__ == "__main__":
 	u = int(inputLines[1])
 	name = str(nEvents) + "_" + str(u)
 
-	newInputLines = [[]]
-	rIndex = 0
+	newInputLines = []
 	for line in inputLines[3:]:
 		if line == "":
 			continue
@@ -44,9 +43,9 @@ if __name__ == "__main__":
 		r = float(r)
 		v = float(v)
 		x = float(x)
-		if rIndex > 0 and r != newInputLines[rIndex-1]:
-			rIndex += 1
-		newInputLines[rIndex].append((r, v, x))
+		if not newInputLines or r != newInputLines[-1][-1][0]:
+			newInputLines.append([])
+		newInputLines[-1].append((r, v, x))
 	inputLines = newInputLines
 
 	newInputLines = []
@@ -59,6 +58,7 @@ if __name__ == "__main__":
 			if v == 0. and nextV == 0.:
 				continue
 			newRLine.append(line)
+		newRLine.append(rLine[-1])
 		newInputLines.append(newRLine)
 	inputLines = newInputLines
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 	outputFile = ROOT.TFile(outputFileName, "NEW")
 
 	tree = ROOT.TTree(name, name)
-	tree.ReadStream(rootStream, "r/D:v:x")
+	tree.ReadStream(rootStream, "r/D:u:x")
 
 	if args.mathematicaList:
 		import numpy
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 		v = numpy.zeros(1, dtype=float)
 		x = numpy.zeros(1, dtype=float)
 		tree.SetBranchAddress("r", r)
-		tree.SetBranchAddress("v", v)
+		tree.SetBranchAddress("u", v)
 		tree.SetBranchAddress("x", x)
 		with open(args.mathematicaList, 'w') as mathematicaFile:
 			mathematicaFile.write("{")
