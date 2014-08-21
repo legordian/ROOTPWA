@@ -60,18 +60,264 @@
 using namespace std;
 using namespace rpwa;
 
+namespace {
+
+	class transformationTableContainer
+	{
+
+	  public:
+
+		transformationTableContainer(const string& filename, const unsigned int& nEvents, const unsigned int& e)
+		{
+			TFile* integralFile = TFile::Open(filename.c_str(), "READ");
+			if(not integralFile) {
+				printErr << "could not open integral file '" << filename << "'. Aborting..." << endl;
+				throw;
+			}
+			stringstream treeName;
+			treeName << nEvents << "_" << e;
+			TTree* integralTree = (TTree*)integralFile->Get(treeName.str().c_str());
+			if(not integralTree) {
+				printErr << "could not find integral TTree '" << treeName.str()
+				         << "' in integral file '" << filename << ".' Aborting..." << endl;
+				throw;
+			}
+			double r;
+			double u;
+			double x;
+			integralTree->SetBranchAddress("r", &r);
+			integralTree->SetBranchAddress("u", &u);
+			integralTree->SetBranchAddress("x", &x);
+			for(int i = 0; i < integralTree->GetEntries(); ++i) {
+				integralTree->GetEntry(i);
+				map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(r);
+				if(rMapIt == _rMap.end()) {
+					_rValues.push_back(r);
+				}
+				_rMap[r].push_back(pair<double, double>(u, x));
+			}
+/*cout << " ############# " << endl;
+cout << nEvents << endl;
+cout << e << endl;
+cout << endl;
+cout << "_rValues = [ " << _rValues[0];
+for(unsigned int i = 1; i < _rValues.size(); ++i) {
+	cout << ", " << _rValues[i];
+}
+cout << "]" << endl;
+for(map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.begin(); rMapIt != _rMap.end(); ++rMapIt) {
+	cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
+	for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
+		cout << ", " << rMapIt->second[i];
+	}
+	cout << "]" << endl;
+}
+
+cout << " ############# " << endl;*/
+			integralFile->Close();
+		}
+
+		double transformCoordinate(const double& r, const double& u) const {
+
+			pair<double, double> rBracket = getClosestPoint(r, _rValues);
+/*cout << "#########" << endl;
+cout << "_rValues = [ " << _rValues[0];
+for(unsigned int i = 1; i < _rValues.size(); ++i) {
+	cout << ", " << _rValues[i];
+}
+cout << "]" << endl;
+cout << " r = " << r << endl;
+cout << " rLow = " << rBracket.first << "  |  rHigh = " << rBracket.second << endl;
+cout << "#########" << endl;
+cout << "####################" << endl;
+cout << endl;
+cout << " r = " << r << endl;
+cout << " u = " << u << endl;
+cout << endl;
+cout << "_rValues = [ " << _rValues[0];
+for(unsigned int i = 1; i < _rValues.size(); ++i) {
+	cout << ", " << _rValues[i];
+}
+cout << "]" << endl;
+cout << endl;
+cout << " rBracket = (" << rBracket.first << ", " << rBracket.second << ")" << endl;
+cout << endl;
+*/			map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(rBracket.first);
+			if(rMapIt == _rMap.end()) {
+				printErr << "mapping error" << endl;
+				throw;
+			}
+			pair<unsigned int, unsigned int> firstRValueIndices = getClosestIndices(u, rMapIt->second);
+			pair<double, double> firstPoint;
+			if(firstRValueIndices.first == firstRValueIndices.second) {
+				firstPoint = rMapIt->second[firstRValueIndices.first];
+			} else {
+				firstPoint = interpolate(u, rMapIt->second[firstRValueIndices.first], rMapIt->second[firstRValueIndices.second]);
+			}
+/*cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
+for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
+	cout << ", " << rMapIt->second[i];
+}
+cout << "]" << endl;
+cout << endl;
+cout << " firstPointBracket = (" << rMapIt->second[firstRValueIndices.first] << ", " << rMapIt->second[firstRValueIndices.second] << ")" << endl;
+cout << " firstPoint(u,x) = (" << firstPoint.first << ", " << firstPoint.second << ")" << endl;
+cout << endl;
+*/			if(rBracket.first == rBracket.second) {
+/*cout << " same rs, returning " << endl;
+cout << " result = " << firstPoint.second << endl;
+cout << endl;
+cout << "####################" << endl;
+*/				return firstPoint.second;
+			}
+			rMapIt = _rMap.find(rBracket.second);
+			if(rMapIt == _rMap.end()) {
+				printErr << "mapping error" << endl;
+				throw;
+			}
+
+			pair<unsigned int, unsigned int> secondRValueIndices = getClosestIndices(u, rMapIt->second);
+			pair<double, double> secondPoint;
+			if(secondRValueIndices.first == secondRValueIndices.second) {
+				secondPoint = rMapIt->second[secondRValueIndices.first];
+			} else {
+				secondPoint = interpolate(u, rMapIt->second[secondRValueIndices.first], rMapIt->second[secondRValueIndices.second]);
+			}
+/*cout << "_rMap[" << rMapIt->first << "] = [" << rMapIt->second[0];
+for(unsigned int i = 1; i < rMapIt->second.size(); ++ i) {
+	cout << ", " << rMapIt->second[i];
+}
+cout << "]" << endl;
+cout << endl;
+cout << " secondPointBracket = (" << rMapIt->second[secondRValueIndices.first] << ", " << rMapIt->second[secondRValueIndices.second] << ")" << endl;
+cout << " secondPoint(u,x) = (" << secondPoint.first << ", " << secondPoint.second << ")" << endl;
+cout << endl;
+*/			const double returnValue = interpolate(r,
+			                                       pair<double,double>(rBracket.first, firstPoint.second),
+			                                       pair<double,double>(rBracket.second, secondPoint.second)
+			                                      ).second;
+
+/*cout << " final interpolation:" << endl;
+cout << endl;
+cout << " firstPoint(r,x) = (" << rBracket.first << ", " << firstPoint.second << ")" << endl;
+cout << " secondPoint(r,x) = (" << rBracket.second << ", " << secondPoint.second << ")" << endl;
+cout << endl;
+cout << " result = " << returnValue << endl;
+cout << endl;
+cout << "####################" << endl;
+*/			return returnValue;
+		}
+
+	  private:
+
+		static pair<double, double> getClosestPoint(const double& p, const vector<double>& values) {
+			unsigned int highIndex = 0;
+			unsigned int lowIndex = 0;
+			if(p <= values[0]) {
+				// do nothing here
+			} else if(p > values[values.size()-1]) {
+				lowIndex = highIndex = values.size() - 1;
+			} else {
+				for(; p > values[highIndex]; ++highIndex);
+				lowIndex = highIndex - 1;
+			}
+			return pair<double, double>(values[lowIndex], values[highIndex]);
+		}
+
+		static pair<unsigned int, unsigned int> getClosestIndices(const double& p,
+		                                                          const vector<pair<double, double> >& values)
+		{
+			unsigned int highIndex = 0;
+			unsigned int lowIndex = 0;
+			if(p <= values[0].first) {
+				// do nothing here
+			} else if(p > values[values.size()-1].first) {
+				lowIndex = highIndex = values.size() - 1;
+			} else {
+				for(; p > values[highIndex].first; ++highIndex);
+				lowIndex = highIndex - 1;
+			}
+			return pair<unsigned int, unsigned int>(lowIndex, highIndex);
+		}
+
+		static pair<double, double> interpolate(const double& x,
+		                          const pair<double, double>& firstPoint,
+		                          const pair<double, double>& secondPoint) {
+			return pair<double, double>(x, firstPoint.second + (x-firstPoint.first) * ((secondPoint.second - firstPoint.second)/(secondPoint.first - firstPoint.first)));
+		}
+
+		map<double, vector<pair<double, double> > > _rMap;
+		vector<double> _rValues;
+
+	};
+
+	class multiNestLogLike : public pwaLikelihood<complex<double> >
+	{
+
+	  public:
+
+		multiNestLogLike()
+		  : pwaLikelihood<complex<double> >(),
+		  _transformationTables() { }
+
+		~multiNestLogLike() {
+			for(unsigned int i = 0; i < _transformationTables.size(); ++i) {
+				delete _transformationTables[i];
+			}
+			_transformationTables.clear();
+		}
+
+		void readTransformationTables(string tableDirectory) {
+			if(NDim() == 0) {
+				printErr << "likelihood not initialized. Aborting..." << endl;
+				throw;
+			}
+			_transformationTables.resize(NDim(), 0);
+			for(unsigned int i = 0; i < NDim(); ++i) {
+				stringstream strStr;
+				strStr << tableDirectory << "/" << i << ".root";
+				_transformationTables[i] = new transformationTableContainer(strStr.str(), nmbEvents(), i);
+			}
+		}
+
+		void convertCoordinates(const unsigned int& nDim, double* coordinates) const
+		{
+			double r = 0.;
+			for(unsigned int i = 0; i < nDim; ++i) {
+				const unsigned int e = nDim - i - 1;
+				const transformationTableContainer* transformationTable = _transformationTables[e];
+				coordinates[i] = transformationTable->transformCoordinate(sqrt(r), coordinates[i]);
+				r += coordinates[i] * coordinates[i];
+			}
+			// TODO: matrix multiplication with cholesky decomposition matrix here
+		}
+
+		virtual double DoEval(const double* par) const {
+
+			// TODO:
+			// change likelihood calculation to take into account
+			// that the prior already includes the poisson factor
+
+			return - pwaLikelihood<std::complex<double> >::DoEval(par);
+		}
+
+	  private:
+
+		std::vector<transformationTableContainer*> _transformationTables;
+
+	};
+
+}
+
 
 void LogLike(double* Cube, int& ndim, int& npars, double& lnew, void* context)
 {
 	assert(ndim == npars);
-	pwaLikelihood<complex<double> >* L = (pwaLikelihood<complex<double> >*)context;
-	static const double stretchFactor = L->nmbEvents() * 10.;
-	assert(ndim == (int)L->NDim());
-	for(int i = 0; i < ndim; ++i) {
-		double x = 2. * (Cube[i] - 0.5) * stretchFactor;
-		Cube[i] = x;
-	}
-	lnew = -L->DoEval(Cube);
+	const unsigned int nDim = (unsigned int)ndim;
+	multiNestLogLike* L = (multiNestLogLike*)context;
+	assert(nDim == L->NDim());
+	L->convertCoordinates(nDim, Cube);
+	lnew = L->DoEval(Cube);
 }
 
 void dumper(int &nSamples,
@@ -117,6 +363,7 @@ usage(const string& progName,
 	     << "        -a file    path to acceptance integral file (default: 'norm.int')" << endl
 	     << "        -A #       number of input events to normalize acceptance to" << endl
 	     << "        -r #       rank of spin density matrix (default: 1)" << endl
+	     << "        -t         transformation table directory" << endl
 	     << "        -q         run quietly (default: false)" << endl
 	     << "        -h         print help" << endl
 	     << endl;
@@ -156,6 +403,7 @@ main(int    argc,
 	string       accIntFileName     = "";                     // file with acceptance integrals
 	unsigned int numbAccEvents      = 0;                      // number of events used for acceptance integrals
 	unsigned int rank               = 1;                      // rank of fit
+	string       tableDirectory     = "";                     // directory with transformation tables
 	bool         quiet              = false;
 	extern char* optarg;
 	// extern int optind;
@@ -199,6 +447,9 @@ main(int    argc,
 			break;
 		case 'c':
 			break;
+		case 't':
+			tableDirectory = optarg;
+			break;
 		case 'q':
 			quiet = true;
 			break;
@@ -236,7 +487,7 @@ main(int    argc,
 	// ---------------------------------------------------------------------------
 	// setup likelihood function
 	printInfo << "creating and setting up likelihood function" << endl;
-	pwaLikelihood<complex<double> > L;
+	multiNestLogLike L;
 	if(quiet) {
 		L.setQuiet();
 	}
@@ -244,6 +495,7 @@ main(int    argc,
 	const double massBinCenter = (massBinMax + massBinMin) / 2.;
 	L.init(rank, massBinCenter, waveListFileName, normIntFileName,
 	       accIntFileName, ampDirName, numbAccEvents, useRootAmps);
+	L.readTransformationTables(tableDirectory);
 	if(not quiet) {
 		cout << L << endl;
 	}
