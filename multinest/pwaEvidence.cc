@@ -222,36 +222,24 @@ namespace {
 				pwaLikelihood<complex<double> >::getIntegralMatrices(normIntegral, accIntegral, phaseSpaceIntegral);
 			}
 			const unsigned int tempDims = accIntegral.nRows();
-			TMatrixT<double> tempRealAccIntegral(2*tempDims, 2*tempDims);
+			TMatrixT<double> realAccIntegral(2*tempDims, 2*tempDims);
 			for(unsigned int i = 0; i < accIntegral.nRows(); ++i) {
 				for(unsigned int j = 0; j < accIntegral.nCols(); ++j) {
 					const complex<double>& elem = accIntegral.get(i, j);
 					const double& real = elem.real();
 					const double& imag = elem.imag();
-					tempRealAccIntegral[2*i  ][2*j  ] =  real;
-					tempRealAccIntegral[2*i+1][2*j+1] =  real;
-					tempRealAccIntegral[2*i+1][2*j  ] =  imag;
-					tempRealAccIntegral[2*i  ][2*j+1] = -imag;
+					realAccIntegral[2*i  ][2*j  ] =  real;
+					realAccIntegral[2*i+1][2*j+1] =  real;
+					realAccIntegral[2*i+1][2*j  ] =  imag;
+					realAccIntegral[2*i  ][2*j+1] = -imag;
 				}
-			}
-			TMatrixT<double> realAccIntegral(NDim(), NDim());
-			// first wave and flat wave have no imaginary part
-			unsigned int realI = 0;
-			for(int i = 0; i < tempRealAccIntegral.GetNrows()-1; ++i) {
-				if(i == 1) continue;
-				unsigned int realJ = 0;
-				for(int j = 0; j < tempRealAccIntegral.GetNcols()-1; ++j) {
-					if(j == 1) continue;
-					realAccIntegral[realI][realJ++] = tempRealAccIntegral[i][j];
-				}
-				realI++;
 			}
 			TDecompChol decomposition(realAccIntegral);
 			if(not decomposition.Decompose()) {
 				printErr << "cholesky decomposition failed. Aborting..." << endl;
 				throw;
 			}
-			_transformationMatrix.ResizeTo(NDim(), NDim());
+			_transformationMatrix.ResizeTo(2*tempDims, 2*tempDims);
 			_transformationMatrix = decomposition.GetU();
 			_transformationMatrix = _transformationMatrix.Invert();
 		}
@@ -279,10 +267,20 @@ namespace {
 				r += coordinates[i] * coordinates[i];
 			}
 			std::vector<double> newCoordinates(nDim, 0.);
-			for(unsigned int i = 0; i < nDim; ++i) {
-				for(unsigned int j = 0; j < nDim; ++j) {
-					newCoordinates[i] = _transformationMatrix[i][j] * coordinates[j];
+			unsigned int parameterIndexI = 0;
+			for(int i = 0; i < _transformationMatrix.GetNrows()-1; ++i) {
+				if(i == 1) {
+					continue;
 				}
+				unsigned int parameterIndexJ = 0;
+				for(int j = 0; j < _transformationMatrix.GetNcols()-1; ++j) {
+					if(j == 1) {
+						continue;
+					}
+					newCoordinates[parameterIndexI] += _transformationMatrix[i][j] * coordinates[parameterIndexJ];
+					parameterIndexJ++;
+				}
+				parameterIndexI++;
 			}
 			for(unsigned int i = 0; i < nDim; ++i) {
 				coordinates[i] = newCoordinates[i];
