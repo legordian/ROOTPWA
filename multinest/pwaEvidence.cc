@@ -39,10 +39,6 @@
 #include <complex>
 #include <time.h>
 
-#define BOOST_DISABLE_ASSERTS
-#include "boost/multi_array.hpp"
-#include "boost/tuple/tuple.hpp"
-
 #include "TROOT.h"
 #include "TTree.h"
 #include "TFile.h"
@@ -64,8 +60,7 @@
 
 using namespace std;
 using namespace rpwa;
-using namespace boost;
-using namespace boost::accumulators;
+
 
 namespace {
 
@@ -295,92 +290,8 @@ namespace {
 
 		double DoEval(const double* par) const
 		{
-			++(_funcCallInfo[DOEVAL].nmbCalls);
-
-			// timer for total time
-			TStopwatch timerTot;
-			timerTot.Start();
-
-			// build complex production amplitudes from function parameters taking into account rank restrictions
-			value_type    prodAmpFlat;
-			ampsArrayType prodAmps;
-			copyFromParArray(par, prodAmps, prodAmpFlat);
-			const value_type prodAmpFlat2 = prodAmpFlat * prodAmpFlat;
-
-			// loop over events and calculate real-data term of log likelihood
-			TStopwatch timer;
-			timer.Start();
-			value_type logLikelihood = 0;
-			{
-				accumulator_set<value_type, stats<tag::sum(compensated)> > logLikelihoodAcc;
-				for (unsigned int iEvt = 0; iEvt < _nmbEvents; ++iEvt) {
-					accumulator_set<value_type, stats<tag::sum(compensated)> > likelihoodAcc;
-					for (unsigned int iRank = 0; iRank < _rank; ++iRank) {  // incoherent sum over ranks
-						for (unsigned int iRefl = 0; iRefl < 2; ++iRefl) {  // incoherent sum over reflectivities
-							accumulator_set<std::complex<double>, stats<tag::sum(compensated)> > ampProdAcc;
-							for (unsigned int iWave = 0; iWave < _nmbWavesRefl[iRefl]; ++iWave) {  // coherent sum over waves
-								ampProdAcc(prodAmps[iRank][iRefl][iWave] * _decayAmps[iEvt][iRefl][iWave]);
-								// cout << "prodAmps[" << iRank << "][" << iRefl << "][" << iWave<< "] = "
-								//      << maxPrecisionDouble(prodAmps[iRank][iRefl][iWave]) << "; "
-								//      << "decayAmps[" << iEvt << "][" << iRefl << "][" << iWave << "] = "
-								//      << maxPrecisionDouble(_decayAmps[iEvt][iRefl][iWave]) << endl;
-							}
-							likelihoodAcc(norm(sum(ampProdAcc)));
-						}
-					}
-					likelihoodAcc(prodAmpFlat2);
-					logLikelihoodAcc(-log(sum(likelihoodAcc)));
-					// cout << endl;
-				}
-				logLikelihood = sum(logLikelihoodAcc);
-				assert(logLikelihood==logLikelihood);
-				if(numeric_limits<double>::has_infinity)assert(logLikelihood != numeric_limits<double>::infinity());
-			}
-			// log time needed for likelihood calculation
-			timer.Stop();
-			_funcCallInfo[DOEVAL].funcTime(timer.RealTime());
-
-			// compute normalization term of log likelihood
-			timer.Start();
-			accumulator_set<value_type, stats<tag::sum(compensated)> > normFactorAcc;
-			const value_type nmbEvt = (_useNormalizedAmps) ? 1 : _nmbEvents;
-			for (unsigned int iRank = 0; iRank < _rank; ++iRank)
-				for (unsigned int iRefl = 0; iRefl < 2; ++iRefl)
-					for (unsigned int iWave = 0; iWave < _nmbWavesRefl[iRefl]; ++iWave)
-						for (unsigned int jWave = 0; jWave < _nmbWavesRefl[iRefl]; ++jWave)  // loop over waves with same reflectivity
-							normFactorAcc(real((prodAmps[iRank][iRefl][iWave] * conj(prodAmps[iRank][iRefl][jWave]))
-							                   * _accMatrix[iRefl][iWave][iRefl][jWave]));
-			// take care of flat wave
-			normFactorAcc(prodAmpFlat2 * _totAcc);
-			// log time needed for normalization
-			timer.Stop();
-			_funcCallInfo[DOEVAL].normTime(timer.RealTime());
-
-			// calculate and return log likelihood value
-//			const double funcVal = logLikelihood + nmbEvt * sum(normFactorAcc);
-			const double funcVal = logLikelihood + _nmbEvents * log(nmbEvt * sum(normFactorAcc));
-//			const double sumum = sum(normFactorAcc);
-//			const double funcVal = logLikelihood + nmbEvt * sumum;
-/*cout << "############" << endl;
-cout << logLikelihood << " | " << _nmbEvents << " | " << log(nmbEvt * sumum) << endl;
-cout << logLikelihood + _nmbEvents * log(nmbEvt * sumum) << endl;
-cout << "----"<<endl;
-cout << logLikelihood << " | " << nmbEvt << " | " << sumum << endl;
-cout << funcVal << endl;
-cout << "############" << endl;
-*/			assert(funcVal==funcVal);
-			if(numeric_limits<double>::has_infinity)assert(funcVal != numeric_limits<double>::infinity());
-
-			// log total consumed time
-			timerTot.Stop();
-			_funcCallInfo[DOEVAL].totalTime(timerTot.RealTime());
-
-			if (_debug)
-				printDebug << "raw log likelihood =  "       << maxPrecisionAlign(logLikelihood     ) << ", "
-				           << "normalization =  "            << maxPrecisionAlign(sum(normFactorAcc)) << ", "
-				           << "normalized log likelihood = " << maxPrecisionAlign(funcVal           ) << endl;
-			return -funcVal;
-
+			// Mind the minus!
+			return -pwaLikelihood<complex<double> >::DoEval(par);
 		}
 
 	  private:
