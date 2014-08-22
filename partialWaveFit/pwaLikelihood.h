@@ -221,7 +221,7 @@ namespace rpwa {
 		                    const value_type     inFlatVal,      // value corresponding to flat wave
 		                    double*              outPar) const;  // output parameter array
 
-	private:
+	protected:
 
 		void resetFuncCallInfo() const;
 
