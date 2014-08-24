@@ -90,46 +90,43 @@ namespace {
 			integralTree->SetBranchAddress("r", &r);
 			integralTree->SetBranchAddress("u", &u);
 			integralTree->SetBranchAddress("x", &x);
+			map<double, vector<pair<double, double> > > rMap;
 			for(int i = 0; i < integralTree->GetEntries(); ++i) {
 				integralTree->GetEntry(i);
-				map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(r);
-				if(rMapIt == _rMap.end()) {
+				map<double, vector<pair<double, double> > >::const_iterator rMapIt = rMap.find(r);
+				if(rMapIt == rMap.end()) {
 					_rValues.push_back(r);
 				}
-				_rMap[r].push_back(pair<double, double>(u, x));
+				rMap[r].push_back(pair<double, double>(u, x));
 			}
+			for(unsigned int i = 0; i < _rValues.size(); ++i) {
+				_valueVectors.push_back(rMap[_rValues[i]]);
+			}
+			assert(_rValues.size() == _valueVectors.size());
 			integralFile->Close();
 		}
 
 		double transformCoordinate(const double& r, const double& u) const
 		{
-			pair<double, double> rBracket = getClosestPoint(r, _rValues);
-			map<double, vector<pair<double, double> > >::const_iterator rMapIt = _rMap.find(rBracket.first);
-			if(rMapIt == _rMap.end()) {
-				printErr << "mapping error" << endl;
-				throw;
-			}
-			pair<unsigned int, unsigned int> firstRValueIndices = getClosestIndices(u, rMapIt->second);
+			pair<unsigned int, unsigned int> rBracket = getClosestRIndices(r, _rValues);
+			const std::vector<std::pair<double, double> >& firstValueVector = _valueVectors[rBracket.first];
+			pair<unsigned int, unsigned int> firstRValueIndices = getClosestUIndices(u, firstValueVector);
 			pair<double, double> firstPoint;
 			if(firstRValueIndices.first == firstRValueIndices.second) {
-				firstPoint = rMapIt->second[firstRValueIndices.first];
+				firstPoint = firstValueVector[firstRValueIndices.first];
 			} else {
-				firstPoint = interpolate(u, rMapIt->second[firstRValueIndices.first], rMapIt->second[firstRValueIndices.second]);
+				firstPoint = interpolate(u, firstValueVector[firstRValueIndices.first], firstValueVector[firstRValueIndices.second]);
 			}
 			if(rBracket.first == rBracket.second) {
 				return firstPoint.second;
 			}
-			rMapIt = _rMap.find(rBracket.second);
-			if(rMapIt == _rMap.end()) {
-				printErr << "mapping error" << endl;
-				throw;
-			}
-			pair<unsigned int, unsigned int> secondRValueIndices = getClosestIndices(u, rMapIt->second);
+			const std::vector<std::pair<double, double> >& secondValueVector = _valueVectors[rBracket.second];
+			pair<unsigned int, unsigned int> secondRValueIndices = getClosestUIndices(u, secondValueVector);
 			pair<double, double> secondPoint;
 			if(secondRValueIndices.first == secondRValueIndices.second) {
-				secondPoint = rMapIt->second[secondRValueIndices.first];
+				secondPoint = secondValueVector[secondRValueIndices.first];
 			} else {
-				secondPoint = interpolate(u, rMapIt->second[secondRValueIndices.first], rMapIt->second[secondRValueIndices.second]);
+				secondPoint = interpolate(u, secondValueVector[secondRValueIndices.first], secondValueVector[secondRValueIndices.second]);
 			}
 			const double returnValue = interpolate(r,
 			                                       pair<double,double>(rBracket.first, firstPoint.second),
@@ -140,7 +137,7 @@ namespace {
 
 	  private:
 
-		static pair<double, double> getClosestPoint(const double& p, const vector<double>& values) {
+		static pair<unsigned int, unsigned int> getClosestRIndices(const double& p, const vector<double>& values) {
 			unsigned int highIndex = 0;
 			unsigned int lowIndex = 0;
 			if(p <= values[0]) {
@@ -151,10 +148,10 @@ namespace {
 				for(; p > values[highIndex]; ++highIndex);
 				lowIndex = highIndex - 1;
 			}
-			return pair<double, double>(values[lowIndex], values[highIndex]);
+			return pair<unsigned int, unsigned int>(lowIndex, highIndex);
 		}
 
-		static pair<unsigned int, unsigned int> getClosestIndices(const double& p,
+		static pair<unsigned int, unsigned int> getClosestUIndices(const double& p,
 		                                                          const vector<pair<double, double> >& values)
 		{
 			unsigned int highIndex = 0;
@@ -176,7 +173,7 @@ namespace {
 			return pair<double, double>(x, firstPoint.second + (x-firstPoint.first) * ((secondPoint.second - firstPoint.second)/(secondPoint.first - firstPoint.first)));
 		}
 
-		map<double, vector<pair<double, double> > > _rMap;
+		vector<vector<pair<double, double> > > _valueVectors;
 		vector<double> _rValues;
 
 	};
@@ -261,13 +258,13 @@ namespace {
 		void convertCoordinates(const unsigned int& nDim, double* coordinates) const
 		{
 			double r = 0.;
+			static std::vector<double> newCoordinates(nDim, 0.);
 			for(unsigned int i = 0; i < nDim; ++i) {
 				const unsigned int e = nDim - i - 1;
-				const transformationTableContainer* transformationTable = _transformationTables[e];
-				coordinates[i] = transformationTable->transformCoordinate(sqrt(r), coordinates[i]);
-				r += coordinates[i] * coordinates[i];
+				const double newCoordinate = _transformationTables[e]->transformCoordinate(sqrt(r), coordinates[i]);
+				r += newCoordinate * newCoordinate;
+				newCoordinates[i] = newCoordinate;
 			}
-			std::vector<double> newCoordinates(nDim, 0.);
 			unsigned int parameterIndexI = 0;
 			for(int i = 0; i < _transformationMatrix.GetNrows()-1; ++i) {
 				if(i == 1) {
@@ -278,13 +275,10 @@ namespace {
 					if(j == 1) {
 						continue;
 					}
-					newCoordinates[parameterIndexI] += _transformationMatrix[i][j] * coordinates[parameterIndexJ];
+					coordinates[parameterIndexI] += _transformationMatrix[i][j] * newCoordinates[parameterIndexJ];
 					parameterIndexJ++;
 				}
 				parameterIndexI++;
-			}
-			for(unsigned int i = 0; i < nDim; ++i) {
-				coordinates[i] = newCoordinates[i];
 			}
 		}
 
