@@ -186,7 +186,8 @@ namespace {
 		multiNestLogLike()
 		  : pwaLikelihood<complex<double> >(),
 		  _transformationTables(),
-		  _transformationMatrix() { }
+		  _transformationMatrix(),
+		  _uniformPriors(false) { }
 
 		~multiNestLogLike() {
 			for(unsigned int i = 0; i < _transformationTables.size(); ++i) {
@@ -257,6 +258,14 @@ namespace {
 
 		void convertCoordinates(const unsigned int& nDim, double* coordinates) const
 		{
+			if(_uniformPriors) {
+				static const double stretchFactor = nmbEvents() * 1.4;
+				assert(nDim == NDim());
+				for(unsigned int i = 0; i < nDim; ++i) {
+					coordinates[i] = 2. * (coordinates[i] - 0.5) * stretchFactor;
+				}
+				return;
+			}
 			double r = 0.;
 			static std::vector<double> newCoordinates(nDim, 0.);
 			for(unsigned int i = 0; i < nDim; ++i) {
@@ -282,6 +291,16 @@ namespace {
 			}
 		}
 
+		void setUniformPriors(bool uniformPriors = true)
+		{
+			_uniformPriors = uniformPriors;
+			if(_uniformPriors) {
+				printInfo << "using uniform priors" << endl;
+			} else {
+				printInfo << "using Poisson priors" << endl;
+			}
+		}
+
 		double DoEval(const double* par) const
 		{
 			// Mind the minus!
@@ -292,6 +311,7 @@ namespace {
 
 		std::vector<transformationTableContainer*> _transformationTables;
 		TMatrixT<double> _transformationMatrix;
+		bool _uniformPriors;
 
 	};
 
@@ -352,6 +372,7 @@ usage(const string& progName,
 	     << "        -A #       number of input events to normalize acceptance to" << endl
 	     << "        -r #       rank of spin density matrix (default: 1)" << endl
 	     << "        -t         transformation table directory" << endl
+	     << "        -U         use uniform instead of Poisson priors" << endl
 	     << "        -q         run quietly (default: false)" << endl
 	     << "        -h         print help" << endl
 	     << endl;
@@ -392,11 +413,12 @@ main(int    argc,
 	unsigned int numbAccEvents      = 0;                      // number of events used for acceptance integrals
 	unsigned int rank               = 1;                      // rank of fit
 	string       tableDirectory     = "";                     // directory with transformation tables
+	bool         uniformPriors      = false;                  // use uniform instead of poisson priors
 	bool         quiet              = false;
 	extern char* optarg;
 	// extern int optind;
 	int c;
-	while ((c = getopt(argc, argv, "l:u:w:d:Ro:S:s:x::Nn:a:A:r:M:m:g:t:cqh")) != -1)
+	while ((c = getopt(argc, argv, "l:u:w:d:Ro:S:s:x::Nn:a:A:r:M:m:g:t:Ucqh")) != -1)
 		switch (c) {
 		case 'l':
 			massBinMin = atof(optarg);
@@ -437,6 +459,9 @@ main(int    argc,
 			break;
 		case 't':
 			tableDirectory = optarg;
+			break;
+		case 'U':
+			uniformPriors = true;
 			break;
 		case 'q':
 			quiet = true;
@@ -484,6 +509,10 @@ main(int    argc,
 	L.init(rank, massBinCenter, waveListFileName, normIntFileName,
 	       accIntFileName, ampDirName, numbAccEvents, useRootAmps);
 	L.readTransformationTables(tableDirectory);
+	if(not uniformPriors) {
+		L.readTransformationTables(tableDirectory);
+	}
+	L.setUniformPriors(uniformPriors);
 	if(not quiet) {
 		cout << L << endl;
 	}
