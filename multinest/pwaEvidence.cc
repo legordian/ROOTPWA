@@ -353,8 +353,8 @@ usage(const string& progName,
 	     << endl
 	     << "usage:" << endl
 	     << progName
-	     << " -l # -u # -w wavelist [-d amplitude directory -R -o outfile -S start value file -N -n normfile"
-	     << " [-a normfile] -r rank -M minimizer [-m algorithm -g strategy -t #] -q -h]" << endl
+	     << " -l # -u # -w wavelist [-d amplitude directory -R -o outfile -N -n normfile"
+	     << " [-a normfile] -A # -r rank -t tableDir -I -U -C -E eff -M # -T tol -q -h]" << endl
 	     << "    where:" << endl
 	     << "        -l #       lower edge of mass bin [MeV/c^2]" << endl
 	     << "        -u #       upper edge of mass bin [MeV/c^2]" << endl
@@ -372,7 +372,12 @@ usage(const string& progName,
 	     << "        -A #       number of input events to normalize acceptance to" << endl
 	     << "        -r #       rank of spin density matrix (default: 1)" << endl
 	     << "        -t         transformation table directory" << endl
-	     << "        -U         use uniform instead of Poisson priors" << endl
+	     << "        -I         do not use importance nested sampling (default: use INS)" << endl
+	     << "        -U         use uniform instead of Poisson priors (default: Poisson)" << endl
+	     << "        -C         run MultiNest in constant efficiency mode (default: off)" << endl
+	     << "        -E         target efficiency of MultiNest (defaul: 0.8)" << endl
+	     << "        -M         number of live points (default: 100 + 50*nmbPar)" << endl
+	     << "        -T         tolerance of the calculated evidence (default: 0.5)" << endl
 	     << "        -q         run quietly (default: false)" << endl
 	     << "        -h         print help" << endl
 	     << endl;
@@ -400,25 +405,30 @@ main(int    argc,
 
 	// ---------------------------------------------------------------------------
 	// parse command line options
-	const string progName           = argv[0];
-	double       massBinMin         = 0;                      // [MeV/c^2]
-	double       massBinMax         = 0;                      // [MeV/c^2]
-	string       waveListFileName   = "";                     // wavelist filename
-	string       ampDirName         = ".";                    // decay amplitude directory name
-	bool         useRootAmps        = false;                  // if true .root amplitude files are read
-	string       outFileName        = "fitresult.root";       // output filename
-	bool         useNormalizedAmps  = false;                  // if true normalized amplitudes are used
-	string       normIntFileName    = "";                     // file with normalization integrals
-	string       accIntFileName     = "";                     // file with acceptance integrals
-	unsigned int numbAccEvents      = 0;                      // number of events used for acceptance integrals
-	unsigned int rank               = 1;                      // rank of fit
-	string       tableDirectory     = "";                     // directory with transformation tables
-	bool         uniformPriors      = false;                  // use uniform instead of poisson priors
-	bool         quiet              = false;
+	const string progName                 = argv[0];
+	double       massBinMin               = 0;                      // [MeV/c^2]
+	double       massBinMax               = 0;                      // [MeV/c^2]
+	string       waveListFileName         = "";                     // wavelist filename
+	string       ampDirName               = ".";                    // decay amplitude directory name
+	bool         useRootAmps              = false;                  // if true .root amplitude files are read
+	string       outFileName              = "fitresult.root";       // output filename
+	bool         useNormalizedAmps        = false;                  // if true normalized amplitudes are used
+	string       normIntFileName          = "";                     // file with normalization integrals
+	string       accIntFileName           = "";                     // file with acceptance integrals
+	unsigned int numbAccEvents            = 0;                      // number of events used for acceptance integrals
+	unsigned int rank                     = 1;                      // rank of fit
+	string       tableDirectory           = "";                     // directory with transformation tables
+	bool         importanceNestedSampling = true;                   // use importance nested sampling
+	bool         uniformPriors            = false;                  // use uniform instead of poisson priors
+	bool         constantEfficiency       = false;                  // use constant efficiency mode
+	double       targetEfficiency         = 0.8;                    // target efficiency
+	unsigned int nLivePoints              = 0;                      // number of live points
+	double       tolerance                = 0.5;                    // tolerance for MultiNest
+	bool         quiet                    = false;
 	extern char* optarg;
 	// extern int optind;
 	int c;
-	while ((c = getopt(argc, argv, "l:u:w:d:Ro:S:s:x::Nn:a:A:r:M:m:g:t:Ucqh")) != -1)
+	while ((c = getopt(argc, argv, "l:u:w:d:Ro:Nn:a:A:r:M:m:g:t:IUCE:M:T:qh")) != -1)
 		switch (c) {
 		case 'l':
 			massBinMin = atof(optarg);
@@ -460,8 +470,23 @@ main(int    argc,
 		case 't':
 			tableDirectory = optarg;
 			break;
+		case 'I':
+			importanceNestedSampling = false;
+			break;
 		case 'U':
 			uniformPriors = true;
+			break;
+		case 'C':
+			constantEfficiency = true;
+			break;
+		case 'E':
+			targetEfficiency = atof(optarg);
+			break;
+		case 'M':
+			nLivePoints = atoi(optarg);
+			break;
+		case 'T':
+			tolerance = atof(optarg);
 			break;
 		case 'q':
 			quiet = true;
@@ -517,7 +542,9 @@ main(int    argc,
 		cout << L << endl;
 	}
 	const unsigned int nmbPar  = L.NDim();
-	const unsigned int nLivePoints = 1000 + 50 * nmbPar;
+	if(nLivePoints == 0) {
+		nLivePoints = 500 + 50 * nmbPar;
+	}
 
 	if(outFileName.size() > 99) {
 		printErr << "output file string is too long (remember, we're interacting with FORTRAN, *sigh*). Aborting..." << endl;
@@ -525,23 +552,21 @@ main(int    argc,
 	}
 	const char* outFileNameRaw = outFileName.c_str();
 
-	printInfo << "Using " << nLivePoints << " live points" << endl;
+	int     IS       = importanceNestedSampling ? 1 : 0; // do Nested Importance Sampling?
+	int     mmodal   = 0;                                // do mode separation?
+	int     ceff     = constantEfficiency ? 1 : 0;       // run in constant efficiency mode?
+	int     nlive    = nLivePoints;                      // number of live points
+	double  efr      = targetEfficiency;                 // set the required efficiency
+	double  tol      = tolerance;                        // tol, defines the stopping criteria
+	int     ndims    = nmbPar;                           // dimensionality (no. of free parameters)
+	int     nPar     = nmbPar;                           // total no. of parameters including free & derived parameters
+	int     nClsPar  = nmbPar;                           // no. of parameters to do mode separation on
+	int     updInt   = 1000;                             // after how many iterations feedback is required & the output files should be updated
+	                                                     // note: posterior files are updated & dumper routine is called after every updInt*10 iterations
+	double  Ztol     = -1E90;                            // all the modes with logZ < Ztol are ignored
+	int     maxModes = 100;                              // expected max no. of modes (used only for memory allocation)
 
-	int     IS       = 1;            // do Nested Importance Sampling?
-	int     mmodal   = 0;            // do mode separation?
-	int     ceff     = 0;            // run in constant efficiency mode?
-	int     nlive    = nLivePoints;  // number of live points
-	double  efr      = 0.8;          // set the required efficiency
-	double  tol      = 0.5;          // tol, defines the stopping criteria
-	int     ndims    = nmbPar;       // dimensionality (no. of free parameters)
-	int     nPar     = nmbPar;       // total no. of parameters including free & derived parameters
-	int     nClsPar  = nmbPar;       // no. of parameters to do mode separation on
-	int     updInt   = 1000;         // after how many iterations feedback is required & the output files should be updated
-	                                 // note: posterior files are updated & dumper routine is called after every updInt*10 iterations
-	double  Ztol     = -1E90;        // all the modes with logZ < Ztol are ignored
-	int     maxModes = 100;          // expected max no. of modes (used only for memory allocation)
-
-	int     pWrap[ndims];            // which parameters to have periodic boundary conditions?
+	int     pWrap[ndims];                                // which parameters to have periodic boundary conditions?
 	for(int i = 0; i < ndims; i++) {
 		pWrap[i] = 0;
 	}
@@ -557,6 +582,17 @@ main(int    argc,
 	int     maxiter   = 0;                  // max no. of iterations, a non-positive value means infinity. MultiNest will terminate if either it
 	                                        // has done max no. of iterations or convergence criterion (defined through tol) has been satisfied
 	void*   context   = (void*)&L;          // not required by MultiNest, any additional information user wants to pass
+
+	cout << endl;
+	printInfo << "Starting MultiNest" << endl;
+	cout << endl;
+	printInfo << "Live Points.................: " << nLivePoints << " live points" << endl;
+	printInfo << "Importance nested sampling..: " << ((IS == 0) ? "disabled" : "enabled") << endl;
+	printInfo << "Constant efficiency mode....: " << ((ceff == 0) ? "disabled" : "enabled") << endl;
+	printInfo << "Target efficiency...........: " << efr << endl;
+	printInfo << "Tolerance...................: " << tol << endl;
+	printInfo << "Priors......................: " << (uniformPriors ? "uniform" : "Poisson") << endl;
+	cout << endl;
 
 	// calling MultiNest
 	nested::run(IS, mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, outFileNameRaw, seed, pWrap, fb, resume, outfile, initMPI,
