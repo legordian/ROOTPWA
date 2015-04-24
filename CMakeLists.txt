@@ -591,6 +591,10 @@ if(USE_NLOPT)
 	add_subdirectory(nlopt)
 endif()
 
+if(USE_BAT)
+	add_subdirectory(bat)
+endif()
+
 
 # print package and feature summary
 message(STATUS "")
