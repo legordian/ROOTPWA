@@ -41,6 +41,7 @@ include_directories(
 	${RPWA_PARTICLEDATA_INCLUDE_DIR}
 	${RPWA_STORAGEFORMATS_INCLUDE_DIR}
 	${RPWA_UTILITIES_INCLUDE_DIR}
+	${RPWA_RELATIVISTICAMPCORRECTIONS_INCLUDE_DIR}
 	SYSTEM
 	${Boost_INCLUDE_DIRS}
 	${Libconfig_INCLUDE_DIR}
@@ -57,6 +58,7 @@ set(SOURCES
 	productionVertex.cc
 	diffractiveDissVertex.cc
 	leptoProductionVertex.cc
+	lorentzFactorFunctionGenerator.cc
 	nonInteractionVertex.cc
 	isobarDecayVertex.cc
 	isobarDecayTopology.cc
@@ -94,6 +96,7 @@ make_shared_library(
 	"${ROOT_LIBS}"
 	"${Libconfig_LIBS}"
 	"${RPWA_NBODYPHASESPACE_LIB}"
+	"${RPWA_RELATIVISTICAMPCORRECTIONS_LIB}"
 	"${RPWA_PARTICLEDATA_LIB}"
 	"${RPWA_STORAGEFORMATS_LIB}"
 	)
