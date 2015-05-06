@@ -54,6 +54,14 @@ namespace rpwa {
 
 		static TLorentzRotation hfTransform(const TLorentzVector& daughterLv);  ///< constructs Lorentz-transformation to helicity RF of daughter particle
 
+		void setUseLorentzFactors (const bool& useLorentzFactors = true)   { _useLorentzFactors = useLorentzFactors; }
+		void setLorentzFactorIndex(const unsigned int& lorentzFactorIndex) { _lorentzFactorIndex = lorentzFactorIndex; }
+
+		const bool&         useLorentzFactors()  const { return _useLorentzFactors; }
+		const unsigned int& lorentzFactorIndex() const { return _lorentzFactorIndex; }
+
+		unsigned int getLorentzFactorSplittingNumber();
+
 		std::string name() const { return "isobarHelicityAmplitude"; }
 
 		static bool debug() { return _debug; }                             ///< returns debug flag
@@ -67,6 +75,11 @@ namespace rpwa {
 		std::complex<double> twoBodyDecayAmplitude
 		(const isobarDecayVertexPtr& vertex,
 		 const bool                  topVertex) const;  ///< calculates amplitude for two-body decay a -> b + c; where b and c are stable
+
+		bool _useLorentzFactors;
+		unsigned int _lorentzFactorIndex;
+		bool _lorentzFactorSplittingCountingRun;
+		mutable unsigned int _lorentzFactorSplittingCounter;
 
 		static bool _debug;  ///< if set to true, debug messages are printed
 

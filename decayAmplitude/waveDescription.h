@@ -88,6 +88,10 @@ namespace rpwa {
 		bool constructAmplitude(isobarAmplitudePtr&           amplitude,
 		                        const isobarDecayTopologyPtr& topo) const;  ///< construct isobar amplitude using existing decay topology
 
+		bool constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes) const;
+		bool constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes,
+		                         const isobarDecayTopologyPtr&    topo) const;
+
 		template<class T>
 		static bool writeKeyFile(std::ostream& out,
 		                         const T&      topoOrAmp,

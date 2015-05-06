@@ -35,6 +35,10 @@
 
 #include "TLorentzRotation.h"
 #include "TMath.h"
+#include "TF2.h"
+#include "TVector3.h"
+#include "TClonesArray.h"
+#include "TObjString.h"
 
 #include "spinUtils.hpp"
 #include "dFunction.hpp"
@@ -50,12 +54,20 @@ bool isobarHelicityAmplitude::_debug = false;
 
 
 isobarHelicityAmplitude::isobarHelicityAmplitude()
-	: isobarAmplitude()
+	: isobarAmplitude(),
+	  _useLorentzFactors(false),
+	  _lorentzFactorIndex(0),
+	  _lorentzFactorSplittingCountingRun(false),
+	  _lorentzFactorSplittingCounter(0)
 { }
 
 
 isobarHelicityAmplitude::isobarHelicityAmplitude(const isobarDecayTopologyPtr& decay)
-	: isobarAmplitude(decay)
+	: isobarAmplitude(decay),
+	  _useLorentzFactors(false),
+	  _lorentzFactorIndex(0),
+	  _lorentzFactorSplittingCountingRun(false),
+	  _lorentzFactorSplittingCounter(0)
 { }
 
 
@@ -195,4 +207,32 @@ isobarHelicityAmplitude::twoBodyDecayAmplitude(const isobarDecayVertexPtr& verte
 	if (_debug)
 		printDebug << "two-body decay amplitude = " << maxPrecisionDouble(amp) << endl;
 	return amp;
+}
+
+
+unsigned int
+isobarHelicityAmplitude::getLorentzFactorSplittingNumber()
+{
+	isobarHelicityAmplitude backup = *this;
+	const isobarDecayTopologyPtr& topo = decayTopology();
+	const vector<particlePtr>& parts = topo->fsParticles();
+	TClonesArray prodKinNames("TObjString", 1);
+	TClonesArray decayKinNames("TObjString", parts.size());
+	TClonesArray prodKinMomenta("TVector3", 1);
+	TClonesArray decayKinMomenta("TVector3", parts.size());
+	new (prodKinMomenta[0]) TVector3(0.1, 0.1, 1);
+	new (prodKinNames[0]) TObjString(topo->productionVertex()->inParticles()[0]->name().c_str());
+	for(unsigned int i = 0; i < parts.size(); ++i) {
+		new (decayKinNames[i]) TObjString(parts[i]->name().c_str());
+		new (decayKinMomenta[i]) TVector3(0.1, 0.1, 1);
+	}
+	topo->initKinematicsData(prodKinNames, decayKinNames);
+	this->init();
+	topo->readKinematicsData(prodKinMomenta, decayKinMomenta);
+	_lorentzFactorSplittingCountingRun = true;
+	_lorentzFactorSplittingCounter = 0;
+	(*this)();
+	unsigned int retval = _lorentzFactorSplittingCounter;
+	*this = backup;
+	return retval;
 }

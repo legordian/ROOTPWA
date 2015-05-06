@@ -312,12 +312,14 @@ waveDescription::constructDecayTopology(isobarDecayTopologyPtr& topo,
 bool
 waveDescription::constructAmplitude(isobarAmplitudePtr& amplitude) const
 {
-	isobarDecayTopologyPtr topo;
-	if (not constructDecayTopology(topo)) {
-		printWarn << "problems constructing decay topology. cannot construct decay amplitude." << endl;
+	vector<isobarAmplitudePtr> amplitudes;
+	bool retval = constructAmplitudes(amplitudes);
+	if(amplitudes.size() != 1) {
+		printErr << "only requesting one amplitude when there are actually several. Aborting..." << endl;
 		return false;
 	}
-	return constructAmplitude(amplitude, topo);
+	amplitude = amplitudes[0];
+	return retval;
 }
 
 
@@ -325,6 +327,41 @@ bool
 waveDescription::constructAmplitude(isobarAmplitudePtr&           amplitude,
                                     const isobarDecayTopologyPtr& topo) const
 {
+	vector<isobarAmplitudePtr> amplitudes;
+	bool retval = constructAmplitudes(amplitudes, topo);
+	if(amplitudes.size() != 1) {
+		printErr << "only requesting one amplitude when there are actually several. Aborting..." << endl;
+		return false;
+	}
+	amplitude = amplitudes[0];
+	return retval;
+}
+
+
+bool
+waveDescription::constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes) const
+{
+	if(not amplitudes.empty()) {
+		printErr << "got non-empty amplitudes. Aborting..." << endl;
+		throw;
+	}
+	isobarDecayTopologyPtr topo;
+	if (not constructDecayTopology(topo)) {
+		printWarn << "problems constructing decay topology. cannot construct decay amplitude." << endl;
+		return false;
+	}
+	return constructAmplitudes(amplitudes, topo);
+}
+
+
+bool
+waveDescription::constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes,
+                                     const isobarDecayTopologyPtr&    topo) const
+{
+	if(not amplitudes.empty()) {
+		printErr << "got non-empty amplitudes. Aborting..." << endl;
+		throw;
+	}
 	if (not topo) {
 		printWarn << "null pointer to decay topology. cannot construct decay amplitude." << endl;
 		return false;
@@ -333,14 +370,14 @@ waveDescription::constructAmplitude(isobarAmplitudePtr&           amplitude,
 		printWarn << "decay topology has issues. cannot construct decay amplitude." << endl;
 		return false;
 	}
-	if (amplitude)
-		amplitude.reset();
+	amplitudes.resize(1);
 	// get amplitude parameters from key file
 	// default values
 	string formalism            = "helicity";
 	bool   boseSymmetrize       = true;
 	bool   isospinSymmetrize    = true;
 	bool   useReflectivityBasis = true;
+	bool   useLorentzFactors    = false;
 	// find amplitude group
 	const Setting&            rootKey      = _key->getRoot();
 	const libconfig::Setting* amplitudeKey = findLibConfigGroup(rootKey, "amplitude", false);
@@ -356,21 +393,35 @@ waveDescription::constructAmplitude(isobarAmplitudePtr&           amplitude,
 		if (amplitudeKey->lookupValue("useReflectivityBasis", useReflectivityBasis) and _debug)
 			printDebug << "setting amplitude option 'useReflectivityBasis' to "
 			           << trueFalse(useReflectivityBasis) << endl;
+		if (amplitudeKey->lookupValue("useLorentzFactors", useLorentzFactors))
+			printDebug << "setting amplitude option 'useLorentzFactors' to "
+			           << trueFalse(useLorentzFactors) << endl;
 	}
 	// construct amplitude
-	amplitude = mapAmplitudeType(formalism, topo);
+	amplitudes[0] = mapAmplitudeType(formalism, topo);
 	if (_debug)
-		printDebug << "constructed amplitude '"<< amplitude->name() << "': "
+		printDebug << "constructed amplitude '"<< amplitudes[0]->name() << "': "
 		           << enDisabled(boseSymmetrize      ) << " Bose symmetrization, "
 		           << enDisabled(isospinSymmetrize   ) << " isospin symmetrization, "
 		           << enDisabled(useReflectivityBasis) << " reflectivity basis" << endl;
-	if (not amplitude) {
+	if (not amplitudes[0]) {
 		printWarn << "problems constructing decay amplitude." << endl;
 		return false;
 	}
-	amplitude->enableBoseSymmetrization   (boseSymmetrize      );
-	amplitude->enableIsospinSymmetrization(isospinSymmetrize   );
-	amplitude->enableReflectivityBasis    (useReflectivityBasis);
+	amplitudes[0]->enableBoseSymmetrization   (boseSymmetrize      );
+	amplitudes[0]->enableIsospinSymmetrization(isospinSymmetrize   );
+	amplitudes[0]->enableReflectivityBasis    (useReflectivityBasis);
+	if(useLorentzFactors) {
+		isobarHelicityAmplitudePtr helAmplitude = boost::dynamic_pointer_cast<isobarHelicityAmplitude>(amplitudes[0]);
+		helAmplitude->setUseLorentzFactors(true);
+		const unsigned int nAmplitudes = helAmplitude->getLorentzFactorSplittingNumber();
+		amplitudes.resize(nAmplitudes);
+		for(unsigned int i = 1; i < amplitudes.size(); ++i) {
+			isobarHelicityAmplitude* newAmplitude = new isobarHelicityAmplitude(*helAmplitude);
+			newAmplitude->setLorentzFactorIndex(i);
+			amplitudes[i] = isobarAmplitudePtr(newAmplitude);
+		}
+	}
 	return true;
 }
 
