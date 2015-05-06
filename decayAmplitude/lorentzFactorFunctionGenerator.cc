@@ -30,13 +30,18 @@ map<lzf::lorentzFactorKey, std::vector<TF2> > lzf::lorentzFactors::getLorentzFac
 		for(unsigned j = 0; j < contribs.size(); ++j) {
 			lorentzFactorKey functionKey = key;
 
-			//TODO: correct key here
-
+/*			//TODO: correct key here
+			functionKey.M       = key.M;                // <- where should that come from?
+			functionKey.lambda1 = fhhs[i]->GetLambda(); // <- is that right??
+			functionKey.lambda2 = fhhs[i]->GetNu();     // <- is that right??
+			functionKey.L       = contribs[i]->GetL();
+			functionKey.S       = contribs[i]->GetS();
+*/
 			const string keyName = functionKey.name();
 			stringstream sstr;
-			sstr << keyName << "_" << retval[key].size();
+			sstr << keyName << "_" << retval[functionKey].size();
 			TF2 function = convertContribToTF(sstr.str(), *contribs[i]);
-			retval[key].push_back(function);
+			retval[functionKey].push_back(function);
 		}
 	}
 	return retval;
