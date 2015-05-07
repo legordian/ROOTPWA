@@ -13,7 +13,6 @@ namespace rpwa {
 
 			int J;
 			int P;
-			int M;
 			int L;
 			int S;
 			int s1;
@@ -25,7 +24,6 @@ namespace rpwa {
 
 			lorentzFactorKey(const int& J_,
 			                 const int& P_,
-			                 const int& M_,
 			                 const int& L_,
 			                 const int& S_,
 			                 const int& s1_,
@@ -36,7 +34,6 @@ namespace rpwa {
 			                 const int& lambda2_)
 				: J(J_),
 				  P(P_),
-				  M(M_),
 				  L(L_),
 				  S(S_),
 				  s1(s1_),
@@ -53,10 +50,10 @@ namespace rpwa {
 		inline
 		bool operator<(const lorentzFactorKey& lhs, const lorentzFactorKey& rhs)
 		{
-			const unsigned int nVars = 11;
-			const int* lhsVars[nVars] = { &lhs.J, &lhs.P, &lhs.M, &lhs.L, &lhs.S, &lhs.s1,
+			const unsigned int nVars = 10;
+			const int* lhsVars[nVars] = { &lhs.J, &lhs.P, &lhs.L, &lhs.S, &lhs.s1,
 			                              &lhs.s2, &lhs.p1, &lhs.p2, &lhs.lambda1, &lhs.lambda2 };
-			const int* rhsVars[nVars] = { &rhs.J, &rhs.P, &rhs.M, &rhs.L, &rhs.S, &rhs.s1,
+			const int* rhsVars[nVars] = { &rhs.J, &rhs.P, &rhs.L, &rhs.S, &rhs.s1,
 			                              &rhs.s2, &rhs.p1, &rhs.p2, &rhs.lambda1, &rhs.lambda2 };
 			for(unsigned int i = 0; i < nVars; ++i) {
 				if(*(lhsVars[i]) != *(rhsVars[i])) {
@@ -70,18 +67,17 @@ namespace rpwa {
 		std::string lorentzFactorKey::name() const
 		{
 			std::stringstream sstr;
-			sstr << "lorentzFactorKey_";
-			sstr << J << "_";
-			sstr << P << "_";
-			sstr << M << "_";
-			sstr << L << "_";
-			sstr << S << "_";
-			sstr << s1 << "_";
-			sstr << s2 << "_";
-			sstr << p1 << "_";
-			sstr << p2 << "_";
-			sstr << lambda1 << "_";
-			sstr << lambda2;
+			sstr << "lorentzFactorKey_"
+			     << "J" << J << "_"
+			     << "P" << P << "_"
+			     << "L" << L << "_"
+			     << "S" << S << "_"
+			     << "sA" << s1 << "_"
+			     << "sB" << s2 << "_"
+			     << "pA" << p1 << "_"
+			     << "pB" << p2 << "_"
+			     << "lbA" << lambda1 << "_"
+			     << "lbB" << lambda2;
 			return sstr.str();
 		}
 
