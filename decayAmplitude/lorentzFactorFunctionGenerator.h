@@ -30,7 +30,9 @@ namespace rpwa {
 			lorentzFactors()
 				: _lorentzFactorStorage() { }
 
-			static TF2  convertContribToTF(const std::string& functionName, const TLSContrib& contrib);
+			static TF2  convertContribToTF(const lorentzFactorKey& key,
+			                               const TLSContrib& contrib,
+			                               const unsigned int& index);
 			static bool readLorentzFactorFunctionFromFile(const lorentzFactorKey& key,
 			                                              std::map<lorentzFactorKey, std::vector<TF2> >& functions);
 			static bool writeLorentzFactorFunctionsToFiles(const std::map<lorentzFactorKey, std::vector<TF2> >& functions);

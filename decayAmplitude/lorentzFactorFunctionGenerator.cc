@@ -38,26 +38,36 @@ map<lzf::lorentzFactorKey, std::vector<TF2> > lzf::lorentzFactors::getLorentzFac
 		const vector<TLSContrib*>& contribs = fhhs[i]->GetLSt();
 		for(unsigned j = 0; j < contribs.size(); ++j) {
 			lorentzFactorKey functionKey = key;
-
-/*			//TODO: correct key here
-			functionKey.M       = key.M;                // <- where should that come from?
-			functionKey.lambda1 = fhhs[i]->GetLambda(); // <- is that right??
-			functionKey.lambda2 = fhhs[i]->GetNu();     // <- is that right??
-			functionKey.L       = contribs[i]->GetL();
-			functionKey.S       = contribs[i]->GetS();
-*/
-			const string keyName = functionKey.name();
-			stringstream sstr;
-			sstr << keyName << "_" << retval[functionKey].size();
-			TF2 function = convertContribToTF(sstr.str(), *contribs[i]);
+			functionKey.lambda1 = fhhs[i]->GetLambda();
+			functionKey.lambda2 = fhhs[i]->GetNu();
+			functionKey.L       = contribs[j]->GetL();
+			functionKey.S       = contribs[j]->GetS();
+			TF2 function = convertContribToTF(functionKey, *contribs[j], retval[functionKey].size());
 			retval[functionKey].push_back(function);
+			if(_debug) {
+				printDebug << "added          function for " << functionKey.name() << endl;
+			}
+			lorentzFactorKey parityMirroredKey = functionKey;
+			parityMirroredKey.lambda1 *= -1.;
+			parityMirroredKey.lambda2 *= -1.;
+			if(functionKey != parityMirroredKey) {
+				TF2 parityMirroredFunction = convertContribToTF(parityMirroredKey,
+				                                                *contribs[j],
+				                                                retval[functionKey].size());
+				retval[parityMirroredKey].push_back(parityMirroredFunction);
+				if(_debug) {
+					printDebug << "added mirrored function for " << parityMirroredKey.name() << endl;
+				}
+			}
 		}
 	}
 	return retval;
 }
 
 
-TF2 lzf::lorentzFactors::convertContribToTF(const string& functionName, const TLSContrib& contrib)
+TF2 lzf::lorentzFactors::convertContribToTF(const lorentzFactorKey& key,
+                                            const TLSContrib& contrib,
+                                            const unsigned int& index)
 {
 	//TODO: function limits?
 	return TF2(functionName.c_str(), "1*x/x*y/y");
