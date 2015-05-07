@@ -22,6 +22,9 @@ namespace rpwa {
 
 			static lorentzFactors* instance();
 
+			static void setDebug(const bool& debug = true) { _debug = debug; }
+			static bool debug   ()                         { return _debug; }
+
 		  private:
 
 			lorentzFactors()
@@ -39,6 +42,8 @@ namespace rpwa {
 
 			const static std::string _lorentzFactorFunctionDirectory;
 			const static std::string _primeNumberFileName;
+
+			static bool _debug;
 
 			static lorentzFactors* _instance;
 

@@ -1,10 +1,13 @@
 #include <lorentzFactorFunctionGenerator.h>
 
+#include <iostream>
+
 #include <TF2.h>
 #include <TFile.h>
 #include <TTree.h>
 
 #include <reportingUtils.hpp>
+
 #include <primeNumbers.h>
 #include <TLSContrib.h>
 #include <TJSS.h>
@@ -15,6 +18,7 @@ namespace lzf = rpwa::lorentzfactors;
 
 
 lzf::lorentzFactors* lzf::lorentzFactors::_instance = 0;
+bool lzf::lorentzFactors::_debug = true;
 const string lzf::lorentzFactors::_lorentzFactorFunctionDirectory = "/home/kbicker/analysis/lorentzFactorCache";
 const string lzf::lorentzFactors::_primeNumberFileName = "/opt/rootpwa/primeNumberCache_big.root";
 
@@ -25,6 +29,9 @@ map<lzf::lorentzFactorKey, std::vector<TF2> > lzf::lorentzFactors::getLorentzFac
 	jss.CalcAmpl();
 	const vector<TFhh*>& fhhs = jss.fhh();
 	map<lzf::lorentzFactorKey, std::vector<TF2> > retval;
+	if(_debug) {
+		printDebug << "called with key " << key.name() << endl;
+	}
 	for(unsigned int i = 0; i < fhhs.size(); ++i) {
 		const vector<TLSContrib*>& contribs = fhhs[i]->GetLSt();
 		for(unsigned j = 0; j < contribs.size(); ++j) {
