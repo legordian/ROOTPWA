@@ -50,6 +50,7 @@
 	code="{ newObj->parseKeyFileContent(newObj->keyFileContent()); }"
 
 
+#pragma link C++ class rpwa::lorentzfactors::lorentzFactorKey+;
 #pragma link C++ class std::vector<std::complex<double> >+;
 #pragma link C++ class std::vector<std::string>+;
 #pragma link C++ class std::vector<rpwa::waveDescription>+;

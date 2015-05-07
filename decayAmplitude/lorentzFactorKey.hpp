@@ -2,14 +2,15 @@
 #define LORENTZFACTORKEY_HH
 
 
-#include<sstream>
-#include<string>
+#include <sstream>
+#include <string>
 
+#include <TNamed.h>
 
 namespace rpwa {
 	namespace lorentzfactors {
 
-		struct lorentzFactorKey {
+		struct lorentzFactorKey : public TNamed {
 
 			int J;
 			int P;
@@ -21,6 +22,18 @@ namespace rpwa {
 			int p2;
 			int lambda1;
 			int lambda2;
+
+			lorentzFactorKey()
+				: J(0),
+				  P(0),
+				  L(0),
+				  S(0),
+				  s1(0),
+				  s2(0),
+				  p1(0),
+				  p2(0),
+				  lambda1(0),
+				  lambda2(0) { }
 
 			lorentzFactorKey(const int& J_,
 			                 const int& P_,
@@ -45,6 +58,13 @@ namespace rpwa {
 
 			std::string name() const;
 
+			bool sameCalcAmplCall(const lorentzFactorKey& rhs) const;
+
+			bool operator==(const lorentzFactorKey& rhs);
+			bool operator!=(const lorentzFactorKey& rhs);
+
+			ClassDef(lorentzFactorKey,1)
+
 		};
 
 		inline
@@ -64,6 +84,15 @@ namespace rpwa {
 		}
 
 		inline
+		std::ostream&
+		operator <<(std::ostream&            out,
+		            const lorentzFactorKey&  key)
+		{
+			out << key.name();
+			return out;
+		}
+
+		inline
 		std::string lorentzFactorKey::name() const
 		{
 			std::stringstream sstr;
@@ -79,6 +108,29 @@ namespace rpwa {
 			     << "lbA" << lambda1 << "_"
 			     << "lbB" << lambda2;
 			return sstr.str();
+		}
+
+		inline
+		bool lorentzFactorKey::sameCalcAmplCall(const lorentzFactorKey& rhs) const
+		{
+			return (J == rhs.J   and
+			        P == rhs.P   and
+			        s1 == rhs.s1 and
+			        p1 == rhs.p1 and
+			        s2 == rhs.s2 and
+			        p2 == rhs.p2);
+		}
+
+		inline
+		bool lorentzFactorKey::operator!=(const lorentzFactorKey& rhs)
+		{
+			return (not (*this == rhs));
+		}
+
+		inline
+		bool lorentzFactorKey::operator==(const lorentzFactorKey& rhs)
+		{
+			return (not (*this < rhs or rhs < *this));
 		}
 
 	}
