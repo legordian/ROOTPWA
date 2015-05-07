@@ -32,13 +32,14 @@ namespace rpwa {
 
 			static TF2  convertContribToTF(const std::string& functionName, const TLSContrib& contrib);
 			static bool readLorentzFactorFunctionFromFile(const lorentzFactorKey& key,
-			                                                    std::vector<TF2>& functions);
+			                                              std::map<lorentzFactorKey, std::vector<TF2> >& functions);
 			static bool writeLorentzFactorFunctionsToFiles(const std::map<lorentzFactorKey, std::vector<TF2> >& functions);
 
 			static std::map<lorentzFactorKey, std::vector<TF2> > getLorentzFactorFunctionsFromRelampl(const lorentzFactorKey& key);
 			static std::string getFileNameFromKey(const lorentzFactorKey& key);
 
 			std::map<lorentzFactorKey, std::vector<TF2> > _lorentzFactorStorage;
+			const static std::vector<TF2> _zeroFunction;
 
 			const static std::string _lorentzFactorFunctionDirectory;
 			const static std::string _primeNumberFileName;

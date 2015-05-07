@@ -5,6 +5,7 @@
 #include <TF2.h>
 #include <TFile.h>
 #include <TTree.h>
+#include <TKey.h>
 
 #include <reportingUtils.hpp>
 
@@ -18,6 +19,7 @@ namespace lzf = rpwa::lorentzfactors;
 
 
 lzf::lorentzFactors* lzf::lorentzFactors::_instance = 0;
+const vector<TF2> lzf::lorentzFactors::_zeroFunction = vector<TF2>(1, TF2("zero_func", "0.*x*y"));
 bool lzf::lorentzFactors::_debug = true;
 const string lzf::lorentzFactors::_lorentzFactorFunctionDirectory = "/home/kbicker/analysis/lorentzFactorCache";
 const string lzf::lorentzFactors::_primeNumberFileName = "/opt/rootpwa/primeNumberCache_big.root";
@@ -65,20 +67,37 @@ TF2 lzf::lorentzFactors::convertContribToTF(const string& functionName, const TL
 const vector<TF2>& lzf::lorentzFactors::lorentzFactorFunction(const lorentzFactorKey& key)
 {
 	if(_lorentzFactorStorage.find(key) == _lorentzFactorStorage.end()) {
-		vector<TF2> functions;
-		if(not readLorentzFactorFunctionFromFile(key, functions)) {
-			std::map<lorentzFactorKey, std::vector<TF2> > newElements = getLorentzFactorFunctionsFromRelampl(key);
+		map<lorentzFactorKey, vector<TF2> > elementsFromFile;
+		if(not readLorentzFactorFunctionFromFile(key, elementsFromFile)) {
+			map<lorentzFactorKey, vector<TF2> > newElements = getLorentzFactorFunctionsFromRelampl(key);
 			//TODO: handle empty vector<TF2>s
 			if(not writeLorentzFactorFunctionsToFiles(newElements)) {
 				printErr << "could not write lorentz factor functions to file. Aborting..." << endl;
 				throw;
 			}
-			if(not readLorentzFactorFunctionFromFile(key, functions)) {
+			if(not readLorentzFactorFunctionFromFile(key, elementsFromFile)) {
 				printErr << "could not read lorentz factor functions from file even after writing them. Aborting..." << endl;
 				throw;
 			}
 		}
-		_lorentzFactorStorage[key] = functions;
+		bool oneFound = false;
+		bool oneNotFound = false;
+		for(map<lorentzFactorKey, vector<TF2> >::const_iterator it = elementsFromFile.begin(); it != elementsFromFile.end(); ++it)
+		{
+			if(_lorentzFactorStorage.find(it->first) != _lorentzFactorStorage.end()) {
+				oneFound = true;
+			} else {
+				oneNotFound = true;
+			}
+		}
+		if(oneFound and oneNotFound) {
+			printErr << "lorentz factor cache seems to be in an inconsistent state. Aborting..." << endl;
+			throw;
+		}
+		_lorentzFactorStorage.insert(elementsFromFile.begin(), elementsFromFile.end());
+		if(_lorentzFactorStorage.find(key) == _lorentzFactorStorage.end()) {
+			_lorentzFactorStorage[key] = _zeroFunction;
+		}
 	}
 	return _lorentzFactorStorage[key];
 }
@@ -99,37 +118,57 @@ lzf::lorentzFactors* lzf::lorentzFactors::instance()
 
 
 bool lzf::lorentzFactors::readLorentzFactorFunctionFromFile(const lorentzFactorKey& key,
-                                                                  std::vector<TF2>& functions)
+                                                            map<lorentzFactorKey, vector<TF2> >& elementsFromFile)
 {
-	if(not functions.empty()) {
-		printErr << "got a non-empty vector. Aborting..." << endl;
+	if(not elementsFromFile.empty()) {
+		printErr << "got a non-empty map. Aborting..." << endl;
 		throw;
 	}
-	const string keyName = key.name();
 	const string fileName = getFileNameFromKey(key);
 	TFile* file = TFile::Open(fileName.c_str(), "READ");
 	if(not file) {
 		return false;
 	}
-	TTree* inTree = 0;
-	file->GetObject(keyName.c_str(), inTree);
-	if(not inTree) {
-		printErr << "could not read tree '" << keyName << "' in file '" << fileName << "'. Aborting..." << endl;
-		throw;
-	}
-	if(inTree->GetEntries() < 1) {
-		printErr << "tree '" << keyName << "' in file '" << fileName << "' has less than one entry. Aborting..." << endl;
-		throw;
-	}
-	TF2* func = 0;
-	if(inTree->SetBranchAddress(keyName.c_str(), &func) != 0) {
-		printErr << "could not set address for branch '" << keyName << "' in file '" << fileName << "'. Aborting..." << endl;
-		throw;
-	}
-	functions.resize(inTree->GetEntries());
-	for(long i = 0; i < inTree->GetEntries(); ++i) {
-		inTree->GetEntry(i);
-		functions[i] = TF2(*func);
+	const TList* namesInFile = file->GetListOfKeys();
+	for(int i = 0; i < namesInFile->GetEntries(); ++i) {
+		string nameInFile(((TKey*)namesInFile->At(i))->GetName());
+		if(nameInFile.length() <= 4) {
+			printErr << "got an invalid key '" << nameInFile << "' from file '" << fileName << "'. Aborting..." << endl;
+			throw;
+		}
+		if(nameInFile.substr( nameInFile.length() - 4 ) == "_key") {
+			continue;
+		}
+		if(_debug) {
+			printDebug << "found key '" << nameInFile << "' in file '" << fileName << "'." << endl;
+		}
+		TTree* inTree = 0;
+		file->GetObject(nameInFile.c_str(), inTree);
+		if(not inTree) {
+			printErr << "could not read tree '" << nameInFile << "' in file '" << fileName << "'. Aborting..." << endl;
+			throw;
+		}
+		if(inTree->GetEntries() < 1) {
+			printErr << "tree '" << nameInFile << "' in file '" << fileName << "' has less than one entry. Aborting..." << endl;
+			throw;
+		}
+		string nameOfKeyInFile = nameInFile + "_key";
+		lorentzFactorKey* newKey = 0;
+		file->GetObject(nameOfKeyInFile.c_str(), newKey);
+		if(not newKey) {
+			printErr << "could not read key '" << nameOfKeyInFile << "' in file '" << fileName << "'. Aborting..." << endl;
+			throw;
+		}
+		TF2* func = 0;
+		if(inTree->SetBranchAddress(nameInFile.c_str(), &func) != 0) {
+			printErr << "could not set address for branch '" << nameInFile << "' in file '" << fileName << "'. Aborting..." << endl;
+			throw;
+		}
+		elementsFromFile[*newKey].resize(inTree->GetEntries());
+		for(long i = 0; i < inTree->GetEntries(); ++i) {
+			inTree->GetEntry(i);
+			elementsFromFile[lorentzFactorKey(*newKey)][i] = TF2(*func);
+		}
 	}
 	file->Close();
 	return true;
@@ -138,17 +177,23 @@ bool lzf::lorentzFactors::readLorentzFactorFunctionFromFile(const lorentzFactorK
 
 bool lzf::lorentzFactors::writeLorentzFactorFunctionsToFiles(const map<lorentzFactorKey, vector<TF2> >& functions)
 {
+	const lorentzFactorKey& referenceKey = functions.begin()->first;
+	const string& fileName = getFileNameFromKey(referenceKey);
+	TFile* file = TFile::Open(fileName.c_str(), "NEW");
+	if(not file) {
+		printWarn << "could not open file '" << fileName << "' for writing. Aborting..." << endl;
+		return false;
+	}
 	for(map<lorentzFactorKey, vector<TF2> >::const_iterator it = functions.begin(); it != functions.end(); ++it)
 	{
 		const lorentzFactorKey& key  = it->first;
+		if(not key.sameCalcAmplCall(referenceKey)) {
+			printErr << "trying to write key '" << key << "' which does not belong "
+			         << "into the same file as key '" << referenceKey << "'. Aborting..." << endl;
+			throw;
+		}
 		const vector<TF2>& functions = it->second;
 		const string keyName = key.name();
-		const string fileName = getFileNameFromKey(key);
-		TFile* file = TFile::Open(fileName.c_str(), "NEW");
-		if(not file) {
-			printWarn << "could not open file '" << fileName << "' for writing. Aborting..." << endl;
-			return false;
-		}
 		TTree* tree = new TTree(keyName.c_str(), keyName.c_str());
 		TF2* function = 0;
 		tree->Branch(keyName.c_str(), &function);
@@ -157,9 +202,16 @@ bool lzf::lorentzFactors::writeLorentzFactorFunctionsToFiles(const map<lorentzFa
 			tree->Fill();
 		}
 		file->cd();
+		{
+			lorentzFactorKey writeKey = key;
+			stringstream sstr;
+			sstr << keyName << "_key";
+			writeKey.SetName(sstr.str().c_str());
+			writeKey.Write();
+		}
 		tree->Write();
-		file->Close();
 	}
+	file->Close();
 	return true;
 }
 
@@ -167,6 +219,13 @@ bool lzf::lorentzFactors::writeLorentzFactorFunctionsToFiles(const map<lorentzFa
 std::string lzf::lorentzFactors::getFileNameFromKey(const lorentzFactorKey& key)
 {
 	stringstream sstr;
-	sstr << _lorentzFactorFunctionDirectory << "/" << key.name() << ".root";
+	sstr << _lorentzFactorFunctionDirectory << "/"
+	     << "lorentzFactorKey_"
+	     << "J" << key.J << "_"
+	     << "P" << key.P << "_"
+	     << "sA" << key.s1 << "_"
+	     << "sB" << key.s2 << "_"
+	     << "pA" << key.p1 << "_"
+	     << "pB" << key.p2 << ".root";
 	return sstr.str();
 }
