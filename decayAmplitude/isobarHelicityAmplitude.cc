@@ -43,11 +43,14 @@
 #include "spinUtils.hpp"
 #include "dFunction.hpp"
 #include "isobarHelicityAmplitude.h"
+#include "lorentzFactorFunctionGenerator.h"
+#include "lorentzFactorKey.hpp"
 
 
 using namespace std;
 using namespace boost;
 using namespace rpwa;
+namespace lzf = rpwa::lorentzfactors;
 
 
 bool isobarHelicityAmplitude::_debug = false;
@@ -56,6 +59,7 @@ bool isobarHelicityAmplitude::_debug = false;
 isobarHelicityAmplitude::isobarHelicityAmplitude()
 	: isobarAmplitude(),
 	  _useLorentzFactors(false),
+	  _useLorentzFactorsInNonRelativisticLimit(false),
 	  _lorentzFactorIndex(0),
 	  _lorentzFactorSplittingCountingRun(false),
 	  _lorentzFactorSplittingCounter(0)
@@ -65,6 +69,7 @@ isobarHelicityAmplitude::isobarHelicityAmplitude()
 isobarHelicityAmplitude::isobarHelicityAmplitude(const isobarDecayTopologyPtr& decay)
 	: isobarAmplitude(decay),
 	  _useLorentzFactors(false),
+	  _useLorentzFactorsInNonRelativisticLimit(false),
 	  _lorentzFactorIndex(0),
 	  _lorentzFactorSplittingCountingRun(false),
 	  _lorentzFactorSplittingCounter(0)
@@ -191,6 +196,37 @@ isobarHelicityAmplitude::twoBodyDecayAmplitude(const isobarDecayVertexPtr& verte
 	else
 		DFunc = DFunctionConj<complex<double> >(J, Lambda, lambda, phi, theta, 0, _debug);
 
+	// calculate normalization factor
+	const double norm = angMomNormFactor(L, _debug);
+
+	double angularPrefactor = norm  * lsClebsch * ssClebsch;
+	if(_useLorentzFactors) {
+		const lzf::lorentzFactorKey key(J/2,
+		                                P,
+		                                L/2,
+		                                S/2,
+		                                s1/2,
+		                                s2/2,
+		                                daughter1->P(),
+		                                daughter2->P(),
+		                                lambda1/2,
+		                                lambda2/2);
+		const vector<TF2>& lorentzFactorFunctions = lzf::lorentzFactors::instance()->lorentzFactorFunction(key);
+		if(not topVertex and lorentzFactorFunctions.size() != 1) {
+			printErr << "more than one lorentz factor function for isobar decay vertex. Aborting..." << endl;
+			throw;
+		}
+		if(_lorentzFactorSplittingCountingRun and topVertex) {
+			if(_lorentzFactorSplittingCounter < lorentzFactorFunctions.size()) {
+				_lorentzFactorSplittingCounter = lorentzFactorFunctions.size();
+			}
+		}
+		const double gamma1 = _useLorentzFactorsInNonRelativisticLimit ? 1. : daughter1->lzVec().Gamma();
+		const double gamma2 = _useLorentzFactorsInNonRelativisticLimit ? 1. : daughter2->lzVec().Gamma();
+		angularPrefactor = sqrt((double)(J+1)) *
+		                   lorentzFactorFunctions[_lorentzFactorIndex](gamma1, gamma2);
+	}
+
 	// calulate barrier factor
 	const double q  = daughter1->lzVec().Vect().Mag();
 	const double bf = barrierFactor(L, q, _debug);
@@ -198,11 +234,8 @@ isobarHelicityAmplitude::twoBodyDecayAmplitude(const isobarDecayVertexPtr& verte
 	// calculate Breit-Wigner
 	const complex<double> bw = vertex->massDepAmplitude();
 
-	// calculate normalization factor
-	const double norm = angMomNormFactor(L, _debug);
-
 	// calculate decay amplitude
-	complex<double> amp = norm * DFunc * lsClebsch * ssClebsch * bf * bw;
+	complex<double> amp = angularPrefactor * DFunc * bf * bw;
 
 	if (_debug)
 		printDebug << "two-body decay amplitude = " << maxPrecisionDouble(amp) << endl;

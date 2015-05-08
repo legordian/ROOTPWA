@@ -373,11 +373,12 @@ waveDescription::constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes
 	amplitudes.resize(1);
 	// get amplitude parameters from key file
 	// default values
-	string formalism            = "helicity";
-	bool   boseSymmetrize       = true;
-	bool   isospinSymmetrize    = true;
-	bool   useReflectivityBasis = true;
-	bool   useLorentzFactors    = false;
+	string formalism               = "helicity";
+	bool   boseSymmetrize          = true;
+	bool   isospinSymmetrize       = true;
+	bool   useReflectivityBasis    = true;
+	bool   useLorentzFactors       = false;
+	bool   lorentzFactorsNonRelLim = false;
 	// find amplitude group
 	const Setting&            rootKey      = _key->getRoot();
 	const libconfig::Setting* amplitudeKey = findLibConfigGroup(rootKey, "amplitude", false);
@@ -396,6 +397,9 @@ waveDescription::constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes
 		if (amplitudeKey->lookupValue("useLorentzFactors", useLorentzFactors))
 			printDebug << "setting amplitude option 'useLorentzFactors' to "
 			           << trueFalse(useLorentzFactors) << endl;
+		if (amplitudeKey->lookupValue("useLorentzFactorsNonRelLim", lorentzFactorsNonRelLim))
+			printDebug << "setting amplitude option 'useLorentzFactorsNonRelLim' to "
+			           << trueFalse(lorentzFactorsNonRelLim) << endl;
 	}
 	// construct amplitude
 	amplitudes[0] = mapAmplitudeType(formalism, topo);
@@ -414,6 +418,7 @@ waveDescription::constructAmplitudes(std::vector<isobarAmplitudePtr>& amplitudes
 	if(useLorentzFactors) {
 		isobarHelicityAmplitudePtr helAmplitude = boost::dynamic_pointer_cast<isobarHelicityAmplitude>(amplitudes[0]);
 		helAmplitude->setUseLorentzFactors(true);
+		helAmplitude->setUseLorentzFactorsNonRelLimit(lorentzFactorsNonRelLim);
 		const unsigned int nAmplitudes = helAmplitude->getLorentzFactorSplittingNumber();
 		amplitudes.resize(nAmplitudes);
 		for(unsigned int i = 1; i < amplitudes.size(); ++i) {

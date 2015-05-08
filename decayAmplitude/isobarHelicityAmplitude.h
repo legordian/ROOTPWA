@@ -57,8 +57,14 @@ namespace rpwa {
 		void setUseLorentzFactors (const bool& useLorentzFactors = true)   { _useLorentzFactors = useLorentzFactors; }
 		void setLorentzFactorIndex(const unsigned int& lorentzFactorIndex) { _lorentzFactorIndex = lorentzFactorIndex; }
 
-		const bool&         useLorentzFactors()  const { return _useLorentzFactors; }
-		const unsigned int& lorentzFactorIndex() const { return _lorentzFactorIndex; }
+		void setUseLorentzFactorsNonRelLimit(const bool& useLorentzFactorsNonRelLimit = true)
+		{
+			_useLorentzFactorsInNonRelativisticLimit = useLorentzFactorsNonRelLimit;
+		}
+
+		const bool&         useLorentzFactors()            const { return _useLorentzFactors; }
+		const unsigned int& lorentzFactorIndex()           const { return _lorentzFactorIndex; }
+		const bool&         useLorentzFactorsNonRelLimit() const { return _useLorentzFactorsInNonRelativisticLimit; }
 
 		unsigned int getLorentzFactorSplittingNumber();
 
@@ -77,6 +83,7 @@ namespace rpwa {
 		 const bool                  topVertex) const;  ///< calculates amplitude for two-body decay a -> b + c; where b and c are stable
 
 		bool _useLorentzFactors;
+		bool _useLorentzFactorsInNonRelativisticLimit;
 		unsigned int _lorentzFactorIndex;
 		bool _lorentzFactorSplittingCountingRun;
 		mutable unsigned int _lorentzFactorSplittingCounter;
