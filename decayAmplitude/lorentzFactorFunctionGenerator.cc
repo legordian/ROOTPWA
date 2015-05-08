@@ -87,11 +87,14 @@ TF2 lzf::lorentzFactors::convertContribToTF(const lorentzFactorKey& key,
 		TFracNum prefactor = TFracNum(2 * key.L + 1, 2 * key.J + 1) *
 		                     (box->GetCG(key.J, key.L, key.S))[ClebschGordanBox::CGIndex(key.L, 0, key.S, contrib.GetDelta())] *
 		                     contrib.GetSpinCG();
+		if(_debug) {
+			printDebug << "prefactor = " << prefactor.FracStringSqrt() << endl;
+		}
 		formulaStream << rpwa::maxPrecision(prefactor.Dval(true));
 		formulaStream << "*(";
 		for(unsigned int i = 0; i < polTerms.size(); ++i) {
 			const polynomialTerms& parameter = polTerms[i];
-			formulaStream << ((parameter.squareOfPrefactor.GetSign()) > 0 ? "+" : "-")
+			formulaStream << ((parameter.squareOfPrefactor.GetSign()) > 0 ? "+" : "")
 			              << rpwa::maxPrecision(parameter.squareOfPrefactor.Dval(true))
 			              << "*x^" << parameter.exponentOfGammaS << "*y^" << parameter.exponentOfGammaSigma;
 		}
@@ -171,6 +174,7 @@ bool lzf::lorentzFactors::readLorentzFactorFunctionFromFile(const lorentzFactorK
 	if(not file) {
 		return false;
 	}
+	printInfo << "reading lorentz factor functions from file '" << fileName << "'." << endl;
 	const TList* namesInFile = file->GetListOfKeys();
 	for(int i = 0; i < namesInFile->GetEntries(); ++i) {
 		string nameInFile(((TKey*)namesInFile->At(i))->GetName());
@@ -213,6 +217,7 @@ bool lzf::lorentzFactors::readLorentzFactorFunctionFromFile(const lorentzFactorK
 		}
 	}
 	file->Close();
+	printInfo << "read " << elementsFromFile.size() << " lorentz factor functions from file '" << fileName << "'." << endl;
 	return true;
 }
 
