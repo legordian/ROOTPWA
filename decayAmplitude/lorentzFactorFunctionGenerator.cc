@@ -10,6 +10,7 @@
 #include <reportingUtils.hpp>
 
 #include <primeNumbers.h>
+#include <ClebschGordanBox.h>
 #include <TLSContrib.h>
 #include <TJSS.h>
 #include <TFhh.h>
@@ -20,7 +21,7 @@ namespace lzf = rpwa::lorentzfactors;
 
 lzf::lorentzFactors* lzf::lorentzFactors::_instance = 0;
 const vector<TF2> lzf::lorentzFactors::_zeroFunction = vector<TF2>(1, TF2("zero_func", "0.*x*y"));
-bool lzf::lorentzFactors::_debug = true;
+bool lzf::lorentzFactors::_debug = false;
 const string lzf::lorentzFactors::_lorentzFactorFunctionDirectory = "/home/kbicker/analysis/lorentzFactorCache";
 const string lzf::lorentzFactors::_primeNumberFileName = "/opt/rootpwa/primeNumberCache_big.root";
 
@@ -69,8 +70,39 @@ TF2 lzf::lorentzFactors::convertContribToTF(const lorentzFactorKey& key,
                                             const TLSContrib& contrib,
                                             const unsigned int& index)
 {
-	//TODO: function limits?
-	return TF2(functionName.c_str(), "1*x/x*y/y");
+	stringstream formulaStream;
+	const vector<polynomialTerms>& polTerms = contrib.getPolynomialTerms();
+	if(polTerms.empty()) {
+		formulaStream << "0*x*y";
+	} else {
+		if((key.lambda1 < 0) and ((key.s1 + key.s2 + key.L - key.J) % 2 != 0)) {
+			formulaStream << "-";
+		}
+		formulaStream << "1*";
+/*		if(key.lambda1 != 0 or key.lambda2 != 0) {
+			formulaStream << rpwa::maxPrecision(sqrt(2.)) << "*";
+		}
+*/
+		ClebschGordanBox* box = ClebschGordanBox::instance();
+		TFracNum prefactor = TFracNum(2 * key.L + 1, 2 * key.J + 1) *
+		                     (box->GetCG(key.J, key.L, key.S))[ClebschGordanBox::CGIndex(key.L, 0, key.S, contrib.GetDelta())] *
+		                     contrib.GetSpinCG();
+		formulaStream << rpwa::maxPrecision(prefactor.Dval(true));
+		formulaStream << "*(";
+		for(unsigned int i = 0; i < polTerms.size(); ++i) {
+			const polynomialTerms& parameter = polTerms[i];
+			formulaStream << ((parameter.squareOfPrefactor.GetSign()) > 0 ? "+" : "-")
+			              << rpwa::maxPrecision(parameter.squareOfPrefactor.Dval(true))
+			              << "*x^" << parameter.exponentOfGammaS << "*y^" << parameter.exponentOfGammaSigma;
+		}
+		formulaStream << ")";
+	}
+	if(_debug) {
+		printDebug << "producing TF2 with formula string '" << formulaStream.str() << "'." << endl;
+	}
+	stringstream nameStream;
+	nameStream << key.name() << "_" << index;
+	return TF2(nameStream.str().c_str(), formulaStream.str().c_str());
 }
 
 
