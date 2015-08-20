@@ -47,14 +47,25 @@ namespace {
 	bool ampIntegralMatrix_integrate(rpwa::ampIntegralMatrix& self,
 	                                 const bp::object& pyAmplitudeMetadata,
 	                                 const unsigned long maxNmbEvents,
-	                                 const std::string& weightFileName)
+	                                 const std::string& weightFileName,
+	                                 const rpwa::eventMetadata* eventMeta,
+	                                 const bp::dict& pyOtfBin)
 	{
 		std::vector<const rpwa::amplitudeMetadata*> amplitudeMeta;
 		if(not rpwa::py::convertBPObjectToVector<const rpwa::amplitudeMetadata*>(pyAmplitudeMetadata, amplitudeMeta)) {
 			PyErr_SetString(PyExc_TypeError, "Got invalid input for amplitudeMetadata when executing rpwa::ampIntegralMatrix::integrate()");
 			bp::throw_error_already_set();
 		}
-		return self.integrate(amplitudeMeta, maxNmbEvents, weightFileName);
+		std::map<std::string, std::pair<double, double> > otfBin;
+		if(bp::len(pyOtfBin.keys()) > 0) {
+			bp::list keys = pyOtfBin.keys();
+			for(unsigned int i = 0; i < len(keys); ++i) {
+				otfBin[bp::extract<std::string>(keys[i])] =
+					std::pair<double, double>(bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][0]),
+					                          bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][1]));
+			}
+		}
+		return self.integrate(amplitudeMeta, maxNmbEvents, weightFileName, eventMeta, otfBin);
 	}
 
 	bool ampIntegralMatrix_writeAscii(const rpwa::ampIntegralMatrix& self, const std::string& outFileName) {

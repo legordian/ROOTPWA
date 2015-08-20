@@ -17,6 +17,7 @@ if __name__ == "__main__":
 	parser.add_argument("-b", type=int, metavar="massBin", default=-1, dest="massBin", help="mass bin to be calculated (default: all)")
 	parser.add_argument("-e", type=str, metavar="eventsType", default="all", dest="eventsType", help="events type to be calculated ('generated' or 'accepted', default: both)")
 	parser.add_argument("-w", type=str, metavar="path", dest="weightsFileName", default="", help="path to MC weight file for de-weighting (default: none)")
+	parser.add_argument("-t", type=str, metavar="otfBin", dest="otfBins", nargs="+", help="on the fly bin in the format binName;lowerBound;upperBound")
 	args = parser.parse_args()
 
 	printErr  = pyRootPwa.utils.printErr
@@ -34,6 +35,14 @@ if __name__ == "__main__":
 	if not fileManager:
 		pyRootPwa.utils.printErr("loading the file manager failed. Aborting...")
 		sys.exit(1)
+
+	if args.otfBins is not None:
+		otfBin = {}
+		for oftBinString in args.otfBins:
+			binComps = oftBinString.split(';')
+			otfBin[binComps[0]] = (float(binComps[1]), float(binComps[2]))
+			pyRootPwa.utils.printInfo("using on-the-fly bin for '" + binComps[0] + "': [" + binComps[1] +
+			                          ", " + binComps[2] + "].")
 
 	binIDList = fileManager.getBinIDList()
 	if (not args.massBin == -1):
@@ -59,11 +68,15 @@ if __name__ == "__main__":
 				printWarn("cannot open output file '" + outputFileName + "'. Skipping...")
 				continue
 			ampFileList = fileManager.getAmplitudeFilePaths(binID, eventsType)
+			dataFile = fileManager.getDataFile(binID, eventsType)
+			if dataFile is None:
+				printErr("could not open data file.")
+				sys.exit(1)
 			if not ampFileList:
 				printErr("could not retrieve valid amplitude file list. Aborting...")
 				sys.exit(1)
 			printInfo("calculating integral matrix from " + str(len(ampFileList)) + " amplitude files:")
-			integral = pyRootPwa.calcIntegrals(ampFileList, args.nEvents, args.weightsFileName)
+			integral = pyRootPwa.calcIntegrals(ampFileList, dataFile.dataFileName, args.nEvents, args.weightsFileName, otfBin)
 			if not integral:
 				printErr("integral calculation failed. Aborting...")
 				sys.exit(1)
