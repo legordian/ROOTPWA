@@ -10,7 +10,8 @@ def calcAmplitude(inputFileName,
                   waveDescriptionID,
                   outputFileName,
                   maxNumberOfEvents = -1,
-                  printProgress = True):
+                  printProgress = True,
+                  otfBin = {}):
 
 	printDebug = pyRootPwa.utils.printDebug
 	printInfo = pyRootPwa.utils.printInfo
@@ -58,7 +59,7 @@ def calcAmplitude(inputFileName,
 		printWarn("could not initialize amplitudeFileWriter.")
 		outputFile.Close()
 		return False
-	amplitudes = pyRootPwa.core.calcAmplitude(eventMeta, amplitude, nEvents, printProgress)
+	amplitudes = pyRootPwa.core.calcAmplitude(eventMeta, amplitude, nEvents, printProgress, "", 25000000, otfBin)
 	if not amplitudes:
 		printWarn("could not calculate amplitudes.")
 		outputFile.Close()

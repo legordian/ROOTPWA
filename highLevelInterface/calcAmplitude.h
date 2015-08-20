@@ -16,7 +16,8 @@ namespace rpwa {
 		                                                 const long int                  maxNmbEvents            = -1,
 		                                                 const bool                      printProgress           = true,
 		                                                 const std::string&              treePerfStatOutFileName = "",         // root file name for tree performance result
-		                                                 const long int                  treeCacheSize           = 25000000);
+		                                                 const long int                  treeCacheSize           = 25000000,
+		                                                 const std::map<std::string, std::pair<double, double> >& otfBin = std::map<std::string, std::pair<double, double> >());
 
 	}
 

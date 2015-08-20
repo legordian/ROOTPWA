@@ -24,6 +24,7 @@ if __name__ == "__main__":
 	parser.add_argument("-f", "--no-progress-bar", action="store_true", dest="noProgressBar", help="disable progress bars (decreases computing time)")
 	parser.add_argument("-k", "--keyfileIndex", type=int, metavar="#", default=-1, help="keyfile index to calculate amplitude for (overrides settings from the config file, index from 0 to number of keyfiles - 1)")
 	parser.add_argument("-w", type=str, metavar="wavelistFileName", default="", dest="wavelistFileName", help="path to wavelist file (default: none)")
+	parser.add_argument("-t", type=str, metavar="otfBin", dest="otfBins", nargs="+", help="on the fly bin in the format binName;lowerBound;upperBound")
 	args = parser.parse_args()
 
 	config = pyRootPwa.rootPwaConfig()
@@ -35,6 +36,14 @@ if __name__ == "__main__":
 	if not fileManager:
 		pyRootPwa.utils.printErr("loading the file manager failed. Aborting...")
 		sys.exit(1)
+
+	otfBin = {}
+	if args.otfBins is not None:
+		for oftBinString in args.otfBins:
+			binComps = oftBinString.split(';')
+			otfBin[binComps[0]] = (float(binComps[1]), float(binComps[2]))
+			pyRootPwa.utils.printInfo("using on-the-fly bin for '" + binComps[0] + "': [" + binComps[1] +
+			                          ", " + binComps[2] + "].")
 
 	if not args.wavelistFileName == "" and not args.keyfileIndex == -1:
 		pyRootPwa.utils.printErr("Setting both options -k and -w is conflicting. Aborting...")
@@ -78,5 +87,5 @@ if __name__ == "__main__":
 				dataFile = fileManager.getDataFile(binID, eventsType)
 				if not dataFile:
 					continue
-				if not pyRootPwa.calcAmplitude(dataFile.dataFileName, fileManager.getKeyFile(waveName)[0], fileManager.getKeyFile(waveName)[1], fileManager.getAmplitudeFilePath(binID, waveName, eventsType), args.maxNmbEvents, not args.noProgressBar):
+				if not pyRootPwa.calcAmplitude(dataFile.dataFileName, fileManager.getKeyFile(waveName)[0], fileManager.getKeyFile(waveName)[1], fileManager.getAmplitudeFilePath(binID, waveName, eventsType), args.maxNmbEvents, not args.noProgressBar, otfBin):
 					pyRootPwa.utils.printWarn("could not calculate amplitude.")

@@ -14,14 +14,25 @@ namespace {
 	                       const long int                  maxNmbEvents,
 	                       const bool                      printProgress,
 	                       const std::string&              treePerfStatOutFileName,
-	                       const long int                  treeCacheSize)
+	                       const long int                  treeCacheSize,
+	                       const bp::dict&                 pyOtfBin)
 	{
+		std::map<std::string, std::pair<double, double> > otfBin;
+		if(bp::len(pyOtfBin.keys()) > 0) {
+			bp::list keys = pyOtfBin.keys();
+			for(unsigned int i = 0; i < len(keys); ++i) {
+				otfBin[bp::extract<std::string>(keys[i])] =
+					std::pair<double, double>(bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][0]),
+					                          bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][1]));
+			}
+		}
 		return bp::list(rpwa::hli::calcAmplitude(eventMeta,
 		                                         amplitude,
 		                                         maxNmbEvents,
 		                                         printProgress,
 		                                         treePerfStatOutFileName,
-		                                         treeCacheSize));
+		                                         treeCacheSize,
+		                                         otfBin));
 	}
 
 }
@@ -38,7 +49,8 @@ void rpwa::py::exportCalcAmplitude()
 		   bp::arg("maxNmbEvents") = -1,
 		   bp::arg("printProgress") = true,
 		   bp::arg("treePerfStatOutFileName") = "",
-		   bp::arg("treeCacheSize") = 25000000)
+		   bp::arg("treeCacheSize") = 25000000,
+		   bp::arg("otfBin") = bp::dict())
 	);
 
 }

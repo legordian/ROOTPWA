@@ -19,7 +19,8 @@ rpwa::hli::calcAmplitude(const eventMetadata&      eventMeta,
                          const long int            maxNmbEvents,
                          const bool                printProgress,
                          const string&             treePerfStatOutFileName,         // root file name for tree performance result
-                         const long int            treeCacheSize)
+                         const long int            treeCacheSize,
+                         const map<string, pair<double, double> >& otfBin)
 {
 	vector<complex<double> > retval;
 
@@ -55,11 +56,37 @@ rpwa::hli::calcAmplitude(const eventMetadata&      eventMeta,
 		treePerfStats = new TTreePerfStats("ioPerf", tree);
 	}
 
+	bool otfBinning = not otfBin.empty();
+	vector<double> binningVariables(otfBin.size());
+	vector<pair<double, double> > bounds(otfBin.size());
+	if(otfBinning) {
+		unsigned int otfBinIndex = 0;
+		for(map<string, pair<double, double> >::const_iterator elem = otfBin.begin(); elem != otfBin.end(); ++elem) {
+			printInfo << "using on-the-fly bin '"
+			          << elem->first << ": ["
+			          << elem->second.first << ", "
+			          << elem->second.second << "]'." << endl;
+			int err = tree->SetBranchAddress(elem->first.c_str(), &binningVariables[otfBinIndex]);
+			bounds[otfBinIndex] = elem->second;
+			++otfBinIndex;
+			if(err < 0) {
+				printErr << "could not set branch address for branch '" << elem->first << "' (error code " << err << ")." << endl;
+				return vector<complex<double> >();
+			}
+		}
+		if(binningVariables.size() != bounds.size()) {
+			printErr << "size mismatch between binning variables and bounds ("
+			         << binningVariables.size() << "!= " << bounds.size() << ")." << endl;
+			return vector<complex<double> >();
+		}
+	}
+
 	// loop over events
 	if(not decayTopo->initKinematicsData(eventMeta.productionKinematicsParticleNames(), eventMeta.decayKinematicsParticleNames())) {
 		printWarn << "problems initializing input data. cannot read input data." << endl;
 		return retval;
 	}
+	unsigned long     eventCounter      = 0;
 	const long int    nmbEventsTree     = tree->GetEntries();
 	const long int    nmbEvents         = ((maxNmbEvents > 0) ? min(maxNmbEvents, nmbEventsTree)
 	                                       : nmbEventsTree);
@@ -70,6 +97,21 @@ rpwa::hli::calcAmplitude(const eventMetadata&      eventMeta,
 		}
 
 		tree->GetEntry(eventIndex);
+
+		if(otfBinning) {
+			bool veto = false;
+			for(unsigned int iBinVar = 0; iBinVar < binningVariables.size(); ++iBinVar) {
+				if(binningVariables[iBinVar] < bounds[iBinVar].first or binningVariables[iBinVar] >= bounds[iBinVar].second) {
+					veto = true;
+					break;
+				}
+			}
+			if(veto) {
+				retval.push_back(std::complex<double>(0., 0.));
+				continue;
+			}
+		}
+		++eventCounter;
 
 		if(not prodKinMomenta or not decayKinMomenta) {
 			printWarn << "at least one of the input data arrays is a null pointer: "
@@ -93,6 +135,9 @@ rpwa::hli::calcAmplitude(const eventMetadata&      eventMeta,
 	if(treePerfStats) {
 		treePerfStats->SaveAs(treePerfStatOutFileName.c_str());
 		delete treePerfStats;
+	}
+	if(otfBinning) {
+		printInfo << eventCounter << " events found in on-the-fly bin." << endl;
 	}
 	return retval;
 }
