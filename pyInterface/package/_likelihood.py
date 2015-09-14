@@ -10,7 +10,9 @@ def initLikelihood(waveDescThres,
                    cauchy = False,
                    cauchyWidth = 0.5,
                    rank = 1,
-                   verbose = False
+                   verbose = False,
+                   otfBin = {},
+                   eventFile = ""
                   ):
 	likelihood = pyRootPwa.core.pwaLikelihood()
 	likelihood.useNormalizedAmps(True)
@@ -44,6 +46,17 @@ def initLikelihood(waveDescThres,
 		return None
 	accIntFile.Close()
 
+	eventMeta = None
+	if eventFile != "":
+		eventFl = ROOT.TFile.Open(eventFile, "READ")
+		if not eventFl:
+			pyRootPwa.utils.printErr("could not open event file '" + eventFile + "'. Aborting...")
+			return [ ]
+		eventMeta = pyRootPwa.core.eventMetadata.readEventFile(eventFl)
+		if not eventMeta:
+			pyRootPwa.utils.printErr("could not get metadata from event file '" + eventFile + "'. Aborting...")
+			return [ ]
+
 	for wave in waveDescThres:
 		waveName = wave[0]
 		ampFileName = ampFileList[waveName]
@@ -55,7 +68,7 @@ def initLikelihood(waveDescThres,
 		if not meta:
 			pyRootPwa.utils.printErr("could not get metadata for waveName '" + waveName + "'.")
 			return None
-		if (not likelihood.addAmplitude(meta)):
+		if (not likelihood.addAmplitude(meta, otfBin, eventMeta)):
 			pyRootPwa.utils.printErr("could not add amplitude '" + waveName + "'. Aborting...")
 			return None
 	if (not likelihood.finishInit()):

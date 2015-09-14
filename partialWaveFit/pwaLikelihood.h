@@ -179,7 +179,9 @@ namespace rpwa {
 
 		bool addAccIntegral(rpwa::ampIntegralMatrix& accMatrix, unsigned int accEventsOverride = 0);
 
-		bool addAmplitude(const rpwa::amplitudeMetadata& meta);
+		bool addAmplitude(const rpwa::amplitudeMetadata& meta,
+		                  const std::map<std::string, std::pair<double, double> >& otfBin = std::map<std::string, std::pair<double, double> >(),
+		                  const rpwa::eventMetadata* eventMeta = 0);
 
 		bool finishInit();
 

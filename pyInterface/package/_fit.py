@@ -20,7 +20,9 @@ def pwaFit(ampFileList,
            saveSpace=False,
            rank=1,
            verbose=False,
-           attempts=1
+           attempts=1,
+           otfBin={},
+           eventFile=""
           ):
 
 	waveDescThres = pyRootPwa.utils.getWaveDescThresFromWaveList(waveListFileName, keyFiles)
@@ -35,7 +37,9 @@ def pwaFit(ampFileList,
 	                                      cauchy = cauchy,
 	                                      cauchyWidth = cauchyWidth,
 	                                      rank = rank,
-	                                      verbose = verbose)
+	                                      verbose = verbose,
+	                                      otfBin = otfBin,
+	                                      eventFile = eventFile)
 	if not likelihood:
 		pyRootPwa.utils.printErr("error while initializing likelihood. Aborting...")
 		return [ ]
@@ -86,7 +90,9 @@ def pwaNloptFit(ampFileList,
                 saveSpace=False,
                 rank=1,
                 verbose=False,
-                attempts=1
+                attempts=1,
+                otfBin={},
+                eventFile=""
                ):
 
 	waveDescThres = pyRootPwa.utils.getWaveDescThresFromWaveList(waveListFileName, keyFiles)
@@ -101,7 +107,9 @@ def pwaNloptFit(ampFileList,
 	                                      cauchy = cauchy,
 	                                      cauchyWidth = cauchyWidth,
 	                                      rank = rank,
-	                                      verbose = verbose)
+	                                      verbose = verbose,
+	                                      otfBin = otfBin,
+	                                      eventFile = eventFile)
 	if not likelihood:
 		pyRootPwa.utils.printErr("error while initializing likelihood. Aborting...")
 		return [ ]

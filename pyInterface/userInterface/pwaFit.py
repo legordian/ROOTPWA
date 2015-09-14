@@ -24,6 +24,7 @@ if __name__ == "__main__":
 	parser.add_argument("-S", type=str, metavar="path", dest="startValFileName", default="", help="path to start value fit result file (default: none)")
 	parser.add_argument("-r", type=int, metavar="#", dest="rank", default=1, help="rank of spin density matrix (default: 1)")
 	parser.add_argument("-A", type=int, metavar="#", dest="accEventsOverride", default=0, help="number of input events to normalize acceptance to (default: use number of events from normalization integral file)")
+	parser.add_argument("-t", type=str, metavar="otfBin", dest="otfBins", nargs="+", help="on the fly bin in the format binName;lowerBound;upperBound")
 	parser.add_argument("-H", "--checkHessian", help="check analytical Hessian eigenvalues (default: false)", action="store_true")
 	parser.add_argument("-z", "--saveSpace", help="save space by not saving integral and covariance matrices (default: false)", action="store_true")
 	parser.add_argument("-v", "--verbose", help="verbose; print debug output (default: false)", action="store_true")
@@ -44,6 +45,15 @@ if __name__ == "__main__":
 	if not fileManager:
 		printErr("loading the file manager failed. Aborting...")
 		sys.exit(1)
+
+	otfBin = {}
+	if args.otfBins is not None:
+		for oftBinString in args.otfBins:
+			binComps = oftBinString.split(';')
+			otfBin[binComps[0]] = (float(binComps[1]), float(binComps[2]))
+			pyRootPwa.utils.printInfo("using on-the-fly bin for '" + binComps[0] + "': [" + binComps[1] +
+			                          ", " + binComps[2] + "].")
+		eventFile = fileManager.getDataFile(args.binID, pyRootPwa.core.eventMetadata.REAL).dataFileName
 
 	ampFileList = fileManager.getAmplitudeFilePaths(args.binID, pyRootPwa.core.eventMetadata.REAL)
 	if not ampFileList:
@@ -71,7 +81,9 @@ if __name__ == "__main__":
 	                              saveSpace = args.saveSpace,
 	                              rank = args.rank,
 	                              verbose = args.verbose,
-	                              attempts = args.nAttempts
+	                              attempts = args.nAttempts,
+	                              otfBin = otfBin,
+	                              eventFile = eventFile
 	                             )
 	if (not fitResults):
 		printErr("didn't get a valid fit result(s). Aborting...")

@@ -68,6 +68,26 @@ namespace {
 	}
 
 
+	bool
+	pwaLikelihood_addAmplitude(rpwa::pwaLikelihood<std::complex<double> >& self,
+	                           const rpwa::amplitudeMetadata&              meta,
+	                           const bp::dict&                             pyOtfBin,
+	                           const rpwa::eventMetadata*                  eventMeta
+	                           )
+	{
+		std::map<std::string, std::pair<double, double> > otfBin;
+		if(bp::len(pyOtfBin.keys()) > 0) {
+			bp::list keys = pyOtfBin.keys();
+			for(unsigned int i = 0; i < len(keys); ++i) {
+				otfBin[bp::extract<std::string>(keys[i])] =
+					std::pair<double, double>(bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][0]),
+					                          bp::extract<double>(pyOtfBin[pyOtfBin.keys()[i]][1]));
+			}
+		}
+		return self.addAmplitude(meta, otfBin, eventMeta);
+	}
+
+
 	bp::list
 	pwaLikelihood_Gradient(rpwa::pwaLikelihood<std::complex<double> >& self,
 	                       const bp::list&                             pyPar)
@@ -215,7 +235,12 @@ void rpwa::py::exportPwaLikelihood() {
 			, (bp::arg("accMatrix"),
 			   bp::arg("accEventsOverride") = 0)
 		)
-		.def("addAmplitude", &rpwa::pwaLikelihood<std::complex<double> >::addAmplitude)
+		.def(
+			"addAmplitude"
+			, &pwaLikelihood_addAmplitude
+			, (bp::arg("otfBin") = bp::dict(),
+			   bp::arg("eventMeta") = 0)
+		)
 		.def("finishInit", &rpwa::pwaLikelihood<std::complex<double> >::finishInit)
 		.def("Gradient", ::pwaLikelihood_Gradient)
 		.def("FdF", ::pwaLikelihood_FdF)
