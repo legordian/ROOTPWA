@@ -51,6 +51,7 @@
 #include "ampIntegralMatrix.h"
 
 
+class TEntryList;
 class TString;
 
 
@@ -179,9 +180,10 @@ namespace rpwa {
 
 		bool addAccIntegral(rpwa::ampIntegralMatrix& accMatrix, unsigned int accEventsOverride = 0);
 
-		bool addAmplitude(const rpwa::amplitudeMetadata& meta,
-		                  const std::map<std::string, std::pair<double, double> >& otfBin = std::map<std::string, std::pair<double, double> >(),
-		                  const rpwa::eventMetadata* eventMeta = 0);
+		bool addOtfBinning(const std::map<std::string, std::pair<double, double> >& otfBin,
+		                   const rpwa::eventMetadata* eventMeta);
+
+		bool addAmplitude(const rpwa::amplitudeMetadata& meta);
 
 		bool finishInit();
 
@@ -227,17 +229,19 @@ namespace rpwa {
 
 		void resetFuncCallInfo() const;
 
-		unsigned int _nmbEvents;        // number of events
-		unsigned int _rank;             // rank of spin density matrix
-		unsigned int _nmbWaves;         // number of waves
-		unsigned int _nmbWavesRefl[2];  // number of negative (= 0) and positive (= 1) reflectivity waves
-		unsigned int _nmbWavesReflMax;  // maximum of number of negative and positive reflectivity waves
-		unsigned int _nmbPars;          // number of function parameters
-		unsigned int _nmbParsFixed;     // number of fixed function parameters
-		bool         _initialized;      // was init method called?
-		bool         _normIntAdded;     // was normalization integral matrix added?
-		bool         _accIntAdded;      // was acceptance integral matrix added?
-		bool         _initFinished;     // was initialization finished?
+		unsigned int               _nmbEvents;       // number of events
+		unsigned int               _rank;            // rank of spin density matrix
+		unsigned int               _nmbWaves;        // number of waves
+		unsigned int               _nmbWavesRefl[2]; // number of negative (= 0) and positive (= 1) reflectivity waves
+		unsigned int               _nmbWavesReflMax; // maximum of number of negative and positive reflectivity waves
+		unsigned int               _nmbPars;         // number of function parameters
+		unsigned int               _nmbParsFixed;    // number of fixed function parameters
+		bool                       _initialized;     // was init method called?
+		bool                       _normIntAdded;    // was normalization integral matrix added?
+		bool                       _accIntAdded;     // was acceptance integral matrix added?
+		bool                       _initFinished;    // was initialization finished?
+		TEntryList*                _otfEntryList;    // entry list for on-the-fly binning
+		const rpwa::eventMetadata* _eventMeta;       // event metadata for on-the-fly binning
 
 	#ifdef USE_CUDA
 		bool                _cudaEnabled;        // if true CUDA kernels are used for some calculations

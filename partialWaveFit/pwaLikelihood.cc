@@ -41,6 +41,7 @@
 #include <cassert>
 #include <limits>
 
+#include "TEntryList.h"
 #include "TString.h"
 #include "TSystem.h"
 #include "TStopwatch.h"
@@ -113,6 +114,8 @@ pwaLikelihood<complexT>::pwaLikelihood()
 	  _normIntAdded     (false),
 	  _accIntAdded      (false),
 	  _initFinished     (false),
+	  _otfEntryList     (0),
+	  _eventMeta        (0),
 #ifdef USE_CUDA
 	  _cudaEnabled      (false),
 #endif
@@ -136,6 +139,9 @@ template<typename complexT>
 pwaLikelihood<complexT>::~pwaLikelihood()
 {
 	clear();
+	if(_otfEntryList) {
+		delete _otfEntryList;
+	}
 }
 
 
@@ -1078,12 +1084,63 @@ pwaLikelihood<complexT>::addAccIntegral(ampIntegralMatrix& accMatrix,
 	return true;
 }
 
+template<typename complexT>
+bool
+pwaLikelihood<complexT>::addOtfBinning(const std::map<std::string, std::pair<double, double> >& otfBin,
+                                       const rpwa::eventMetadata* eventMeta)
+{
+	if(otfBin.empty()) {
+		return false;
+	}
+	vector<double> binningVariables(otfBin.size());
+	vector<pair<double, double> > bounds(otfBin.size());
+	if(not eventMeta) {
+		printErr << "cannot perform on-the-fly binning without event file." << endl;
+		return false;
+	}
+	_eventMeta = eventMeta;
+
+	unsigned int otfBinIndex = 0;
+	for(map<string, pair<double, double> >::const_iterator elem = otfBin.begin(); elem != otfBin.end(); ++elem) {
+		printInfo << "using on-the-fly bin '"
+		          << elem->first << ": ["
+		          << elem->second.first << ", "
+		          << elem->second.second << "]'." << endl;
+		int err = _eventMeta->eventTree()->SetBranchAddress(elem->first.c_str(), &binningVariables[otfBinIndex]);
+		bounds[otfBinIndex] = elem->second;
+		++otfBinIndex;
+		if(err < 0) {
+			printErr << "could not set branch address for branch '" << elem->first << "' (error code " << err << ")." << endl;
+			return false;
+		}
+	}
+	if(binningVariables.size() != bounds.size()) {
+		printErr << "size mismatch between binning variables and bounds ("
+		         << binningVariables.size() << "!= " << bounds.size() << ")." << endl;
+		return false;
+	}
+	_otfEntryList = new TEntryList();
+	for(long i = 0; i < _eventMeta->eventTree()->GetEntries(); ++i) {
+		_eventMeta->eventTree()->GetEntry(i);
+		bool veto = false;
+		for(unsigned int iBinVar = 0; iBinVar < binningVariables.size(); ++iBinVar) {
+			if(binningVariables[iBinVar] < bounds[iBinVar].first or binningVariables[iBinVar] >= bounds[iBinVar].second) {
+				veto = true;
+				break;
+			}
+		}
+		if(veto) {
+			continue;
+		}
+		_otfEntryList->Enter(i);
+	}
+	return false;
+}
+
 
 template<typename complexT>
 bool
-pwaLikelihood<complexT>::addAmplitude(const amplitudeMetadata& meta,
-                                      const map<string, pair<double, double> >& otfBin,
-                                      const eventMetadata* eventMeta)
+pwaLikelihood<complexT>::addAmplitude(const amplitudeMetadata& meta)
 {
 	if (not _accIntAdded) {
 		printErr << "acceptance integral not added!" << endl
@@ -1103,67 +1160,34 @@ pwaLikelihood<complexT>::addAmplitude(const amplitudeMetadata& meta,
 	// get normalization
 	const complexT normInt = _normMatrix[refl][waveIndex][refl][waveIndex];
 
-	bool otfBinning = not otfBin.empty();
-	vector<double> binningVariables(otfBin.size());
-	vector<pair<double, double> > bounds(otfBin.size());
-	if(otfBinning) {
-		if(not eventMeta) {
-			printErr << "cannot perform on-the-fly binning without event file." << endl;
-			return false;
-		}
+	if(_otfEntryList) {
 		if(meta.eventMetadata().size() != 1) {
 			printErr << "amplitude metadata with more than one event metadatasets are not supported." << endl;
 			return false;
 		}
-		if(meta.eventMetadata()[0].contentHash() != eventMeta->contentHash()) {
+		if(meta.eventMetadata()[0].contentHash() != _eventMeta->contentHash()) {
 			printErr << "hash mismatch between event and amplitude metadat." << endl;
 			return false;
 		}
-		if(meta.amplitudeTree()->GetEntries() > eventMeta->eventTree()->GetEntries()) {
+		if(meta.amplitudeTree()->GetEntries() != _eventMeta->eventTree()->GetEntries()) {
 			printErr << "more events in amplitude file than in data file." << endl;
 			return false;
 		}
-		unsigned int otfBinIndex = 0;
-		for(map<string, pair<double, double> >::const_iterator elem = otfBin.begin(); elem != otfBin.end(); ++elem) {
-			printInfo << "using on-the-fly bin '"
-			          << elem->first << ": ["
-			          << elem->second.first << ", "
-			          << elem->second.second << "]'." << endl;
-			int err = eventMeta->eventTree()->SetBranchAddress(elem->first.c_str(), &binningVariables[otfBinIndex]);
-			bounds[otfBinIndex] = elem->second;
-			++otfBinIndex;
-			if(err < 0) {
-				printErr << "could not set branch address for branch '" << elem->first << "' (error code " << err << ")." << endl;
-				return false;
-			}
-		}
-		if(binningVariables.size() != bounds.size()) {
-			printErr << "size mismatch between binning variables and bounds ("
-			         << binningVariables.size() << "!= " << bounds.size() << ")." << endl;
-			return false;
-		}
+		meta.amplitudeTree()->SetEntryList(_otfEntryList);
 	}
 
 	// connect tree leaf
 	amplitudeTreeLeaf* ampTreeLeaf = 0;
 	meta.amplitudeTree()->SetBranchAddress(amplitudeMetadata::amplitudeLeafName.c_str(), &ampTreeLeaf);
 	vector<complexT> amps;
-	for (long int eventIndex = 0; eventIndex < meta.amplitudeTree()->GetEntriesFast(); ++eventIndex) {
-		if(otfBinning) {
-			eventMeta->eventTree()->GetEntry(eventIndex);
-			bool veto = false;
-			for(unsigned int iBinVar = 0; iBinVar < binningVariables.size(); ++iBinVar) {
-				if(binningVariables[iBinVar] < bounds[iBinVar].first or binningVariables[iBinVar] >= bounds[iBinVar].second) {
-					veto = true;
-					break;
-				}
-			}
-			if(veto) {
-				continue;
-			}
+	long int nEntries = (_otfEntryList != 0) ? _otfEntryList->GetN() : meta.amplitudeTree()->GetEntries();
+	for (long int eventIndex = 0; eventIndex < nEntries; ++eventIndex) {
+		if(_otfEntryList) {
+			meta.amplitudeTree()->GetEntry(_otfEntryList->GetEntry(eventIndex));
+		} else {
+			meta.amplitudeTree()->GetEntry(eventIndex);
 		}
-		meta.amplitudeTree()->GetEntry(eventIndex);
-		if (!ampTreeLeaf) {
+		if(!ampTreeLeaf) {
 			printWarn << "null pointer to amplitude leaf for event " << eventIndex << ". "
 			          << "skipping." << endl;
 			continue;
@@ -1180,6 +1204,7 @@ pwaLikelihood<complexT>::addAmplitude(const amplitudeMetadata& meta,
 		}
 		amps.push_back(amp);
 	}
+	meta.amplitudeTree()->SetEntryList(0);
 
 	unsigned int nmbEvents = amps.size();
 	if (nmbEvents == 0) {
