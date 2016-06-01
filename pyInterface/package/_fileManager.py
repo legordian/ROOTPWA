@@ -213,8 +213,8 @@ class fileManager(object):
 			found = True
 			for variableName in inputFile.binningMap:
 				if variableName in multiBin.boundaries:
-					if (inputFile.binningMap[variableName][1] < multiBin.boundaries[variableName][0]) or \
-					   (inputFile.binningMap[variableName][0] > multiBin.boundaries[variableName][1]):
+					if (inputFile.binningMap[variableName][1] <  multiBin.boundaries[variableName][0]) or \
+					   (inputFile.binningMap[variableName][0] >= multiBin.boundaries[variableName][1]):
 						found = False
 						break
 			if found:
