@@ -76,9 +76,9 @@ class multiBin(object):
 			if direction == ">":
 				right, left = left, right
 			if strict:
-				return left <= right
-			else:
 				return left < right
+			else:
+				return left <= right
 
 		keys = sorted(self.boundaries.keys())
 		if keys != sorted(other.boundaries.keys()):

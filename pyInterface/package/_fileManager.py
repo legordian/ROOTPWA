@@ -103,17 +103,22 @@ class fileManager(object):
 		if not self.binList:
 			for _, inputFiles in self.dataFiles.iteritems():
 				for inputFile in inputFiles:
-					pyRootPwa.utils.printInfo("adding bin '" + str(inputFile.binningMap) + "'.")
+					pyRootPwa.utils.printInfo("checking bin '" + str(inputFile.binningMap) + "'.")
 					try:
 						latestBin = pyRootPwa.utils.multiBin(inputFile.binningMap)
 					except (TypeError, ValueError):
 						pyRootPwa.utils.printErr("no binning given in config file and no binning map" +
 						                         " found in data file '" + str(inputFile.dataFileName) + "'.")
 						return False
+					alreadyPresent = False
 					for multiBin in self.binList:
-						if latestBin.overlap(multiBin, False):
+						if latestBin == multiBin:
+							alreadyPresent = True
+							continue
+						elif latestBin.overlap(multiBin, False):
 							pyRootPwa.utils.printWarn("overlap found of bin '" + str(latestBin) + "' and bin '" + str(multiBin) + "'.")
-					if latestBin not in self.binList:
+					if not alreadyPresent:
+						pyRootPwa.utils.printInfo("adding bin '" + str(inputFile.binningMap) + "'.")
 						self.binList.append(latestBin)
 		else:
 			for _, inputFiles in self.dataFiles.iteritems():
